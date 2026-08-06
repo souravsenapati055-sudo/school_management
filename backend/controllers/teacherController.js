@@ -1,0 +1,234 @@
+const { query } = require('../config/db');
+
+// 1. Fetch Students by Class & Section for Attendance/Marks Upload
+const getStudentsForTeacher = async (req, res) => {
+    try {
+        const { class_name, section_name } = req.query;
+        if (!class_name || !section_name) {
+            return res.status(400).json({ success: false, message: 'Class and Section required' });
+        }
+
+        const [students] = await query(
+            'SELECT user_id, name, roll_number, class_name, section_name FROM students WHERE class_name = ? AND section_name = ? ORDER BY roll_number ASC',
+            [class_name, section_name]
+        );
+
+        return res.json({ success: true, students });
+    } catch (err) {
+        console.error('getStudentsForTeacher error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// 2. Mark Attendance
+const submitAttendance = async (req, res) => {
+    try {
+        const teacherId = req.user.userId;
+        const { class_name, section_name, date, attendance_records } = req.body; 
+        // attendance_records = [{ student_id: 'SOURAV849', status: 'Present' }, ...]
+
+        if (!class_name || !section_name || !date || !Array.isArray(attendance_records)) {
+            return res.status(400).json({ success: false, message: 'Missing required attendance parameters' });
+        }
+
+        // Check if attendance master entry exists for this date & class
+        let [existing] = await query('SELECT id FROM attendance WHERE class_name = ? AND section_name = ? AND date = ?', [
+            class_name, section_name, date
+        ]);
+
+        let attendanceId;
+        if (existing.length > 0) {
+            attendanceId = existing[0].id;
+        } else {
+            const [resMaster] = await query('INSERT INTO attendance (class_name, section_name, date, teacher_id) VALUES (?, ?, ?, ?)', [
+                class_name, section_name, date, teacherId
+            ]);
+            attendanceId = resMaster.insertId;
+        }
+
+        // Upsert individual student attendance records
+        for (const record of attendance_records) {
+            const [details] = await query('SELECT id FROM attendance_details WHERE attendance_id = ? AND student_id = ?', [
+                attendanceId, record.student_id
+            ]);
+
+            if (details.length > 0) {
+                await query('UPDATE attendance_details SET status = ? WHERE id = ?', [record.status, details[0].id]);
+            } else {
+                await query('INSERT INTO attendance_details (attendance_id, student_id, status) VALUES (?, ?, ?)', [
+                    attendanceId, record.student_id, record.status
+                ]);
+            }
+        }
+
+        return res.json({ success: true, message: `Attendance saved successfully for ${date}` });
+    } catch (err) {
+        console.error('submitAttendance error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
+    }
+};
+
+// Fetch Attendance History for Class/Section/Date
+const getAttendanceRecords = async (req, res) => {
+    try {
+        const { class_name, section_name, date } = req.query;
+        if (!class_name || !section_name || !date) {
+            return res.status(400).json({ success: false, message: 'Class, Section, and Date required' });
+        }
+
+        const [master] = await query('SELECT id FROM attendance WHERE class_name = ? AND section_name = ? AND date = ?', [
+            class_name, section_name, date
+        ]);
+
+        if (master.length === 0) {
+            return res.json({ success: true, records: [] });
+        }
+
+        const [records] = await query(`
+            SELECT ad.student_id, ad.status, s.name, s.roll_number 
+            FROM attendance_details ad
+            JOIN students s ON ad.student_id = s.user_id
+            WHERE ad.attendance_id = ?
+            ORDER BY s.roll_number ASC
+        `, [master[0].id]);
+
+        return res.json({ success: true, records });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// 3. Upload Homework
+const createHomework = async (req, res) => {
+    try {
+        const teacherId = req.user.userId;
+        const { class_name, section_name, subject_name, title, description, due_date } = req.body;
+
+        if (!class_name || !section_name || !subject_name || !title || !due_date) {
+            return res.status(400).json({ success: false, message: 'Required homework fields missing' });
+        }
+
+        await query(`INSERT INTO homework (class_name, section_name, subject_name, title, description, due_date, teacher_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`, [
+            class_name, section_name, subject_name, title, description || '', due_date, teacherId
+        ]);
+
+        return res.status(201).json({ success: true, message: 'Homework published successfully' });
+    } catch (err) {
+        console.error('createHomework error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+const getHomeworkList = async (req, res) => {
+    try {
+        const { class_name, section_name } = req.query;
+        let sql = 'SELECT * FROM homework WHERE 1=1';
+        let params = [];
+
+        if (class_name) {
+            sql += ' AND class_name = ?';
+            params.push(class_name);
+        }
+        if (section_name) {
+            sql += ' AND section_name = ?';
+            params.push(section_name);
+        }
+
+        sql += ' ORDER BY id DESC';
+        const [homework] = await query(sql, params);
+
+        return res.json({ success: true, homework });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+// 4. Dynamic Result Upload based on Officer-Configured Class Subjects
+const getConfiguredSubjectsForClass = async (req, res) => {
+    try {
+        const { class_name } = req.params;
+        const [subjects] = await query('SELECT subject_name FROM class_subjects WHERE class_name = ?', [class_name]);
+        return res.json({ success: true, subjects: subjects.map(s => s.subject_name) });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+const uploadStudentMarks = async (req, res) => {
+    try {
+        const { exam_name, class_name, section_name, student_id, marks_data, remarks } = req.body;
+        // marks_data = [{ subject_name: 'Mathematics', marks_obtained: 95, max_marks: 100 }, ...]
+
+        if (!exam_name || !class_name || !section_name || !student_id || !Array.isArray(marks_data)) {
+            return res.status(400).json({ success: false, message: 'Invalid result upload payload' });
+        }
+
+        // Calculate Totals & Percentage
+        let totalObtained = 0;
+        let totalMax = 0;
+
+        marks_data.forEach(m => {
+            totalObtained += parseFloat(m.marks_obtained || 0);
+            totalMax += parseFloat(m.max_marks || 100);
+        });
+
+        const percentage = totalMax > 0 ? parseFloat(((totalObtained / totalMax) * 100).toFixed(2)) : 0;
+
+        // Determine Grade
+        let grade = 'F';
+        if (percentage >= 90) grade = 'A+';
+        else if (percentage >= 80) grade = 'A';
+        else if (percentage >= 70) grade = 'B+';
+        else if (percentage >= 60) grade = 'B';
+        else if (percentage >= 50) grade = 'C';
+        else if (percentage >= 33) grade = 'D';
+
+        // Check if result record already exists
+        const [existing] = await query('SELECT id FROM results WHERE exam_name = ? AND student_id = ?', [
+            exam_name, student_id
+        ]);
+
+        let resultId;
+        if (existing.length > 0) {
+            resultId = existing[0].id;
+            await query('UPDATE results SET total_marks = ?, percentage = ?, grade = ?, remarks = ? WHERE id = ?', [
+                totalObtained, percentage, grade, remarks || 'Good', resultId
+            ]);
+            // Clear old detail rows
+            await query('DELETE FROM result_details WHERE result_id = ?', [resultId]);
+        } else {
+            const [resMaster] = await query(`INSERT INTO results (exam_name, class_name, section_name, student_id, total_marks, percentage, grade, remarks) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
+                exam_name, class_name, section_name, student_id, totalObtained, percentage, grade, remarks || 'Good'
+            ]);
+            resultId = resMaster.insertId;
+        }
+
+        // Insert new subject marks
+        for (const item of marks_data) {
+            await query('INSERT INTO result_details (result_id, subject_name, marks_obtained, max_marks) VALUES (?, ?, ?, ?)', [
+                resultId, item.subject_name, parseFloat(item.marks_obtained), parseFloat(item.max_marks || 100)
+            ]);
+        }
+
+        return res.json({
+            success: true,
+            message: `Marks uploaded successfully for Student ${student_id}`,
+            summary: { totalObtained, percentage, grade }
+        });
+    } catch (err) {
+        console.error('uploadStudentMarks error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
+    }
+};
+
+module.exports = {
+    getStudentsForTeacher,
+    submitAttendance,
+    getAttendanceRecords,
+    createHomework,
+    getHomeworkList,
+    getConfiguredSubjectsForClass,
+    uploadStudentMarks
+};
