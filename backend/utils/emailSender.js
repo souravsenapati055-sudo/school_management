@@ -16,7 +16,10 @@ function createTransporter() {
             auth: {
                 user: rawUser,
                 pass: cleanPass
-            }
+            },
+            connectionTimeout: 6000,
+            greetingTimeout: 6000,
+            socketTimeout: 6000
         });
     }
 
@@ -28,7 +31,10 @@ function createTransporter() {
             auth: {
                 user: process.env.SMTP_USER.trim(),
                 pass: (process.env.SMTP_PASS || '').trim()
-            }
+            },
+            connectionTimeout: 6000,
+            greetingTimeout: 6000,
+            socketTimeout: 6000
         });
     }
 
@@ -116,7 +122,16 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
             html: htmlContent
         };
 
-        const info = await transporter.sendMail(mailOptions);
+        // 6 second timeout race promise
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('SMTP connection timed out after 6 seconds')), 6000);
+        });
+
+        const info = await Promise.race([
+            transporter.sendMail(mailOptions),
+            timeoutPromise
+        ]);
+
         console.log(`[EmailService Success] OTP email sent successfully to ${toEmail}. Message ID: ${info.messageId}`);
         return {
             success: true,
