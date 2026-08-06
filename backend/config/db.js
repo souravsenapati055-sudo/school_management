@@ -47,8 +47,12 @@ async function initDB() {
         getEnv('MYSQL_PUBLIC_URL') || 
         getEnv('MYSQL_PRIVATE_URL') || 
         getEnv('DATABASE_URL') || 
-        getEnv('DB_HOST')
+        getEnv('DB_HOST') ||
+        getEnv('MYSQLPASSWORD') ||
+        getEnv('MYSQL_ROOT_PASSWORD')
     );
+
+    console.log(`[DB Setup Info] Resolved Config: Host=${dbConfig.host}, Port=${dbConfig.port}, User=${dbConfig.user}, DB=${dbConfig.database}, HasPassword=${Boolean(dbConfig.password)}, ExplicitMySQL=${isExplicitMysql}`);
 
     if (process.env.DB_TYPE !== 'sqlite' || isExplicitMysql) {
         let attempts = 0;
