@@ -8,19 +8,22 @@ let mysqlPool = null;
 let sqliteDb = null;
 let dbType = 'mysql'; // 'mysql' or 'sqlite'
 
+// Helper to get non-empty env var
+const getEnv = (key) => (process.env[key] && process.env[key].trim() !== '') ? process.env[key].trim() : null;
+
 const dbConfig = {
-    host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
-    user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
-    password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || process.env.MYSQL_ROOT_PASSWORD || '',
-    database: process.env.DB_NAME || process.env.MYSQLDATABASE || process.env.MYSQL_DATABASE || 'railway',
-    port: parseInt(process.env.DB_PORT || process.env.MYSQLPORT || '3306'),
+    host: getEnv('DB_HOST') || getEnv('MYSQLHOST') || 'localhost',
+    user: getEnv('DB_USER') || getEnv('MYSQLUSER') || 'root',
+    password: getEnv('DB_PASSWORD') || getEnv('MYSQLPASSWORD') || getEnv('MYSQL_ROOT_PASSWORD') || '',
+    database: getEnv('DB_NAME') || getEnv('MYSQLDATABASE') || getEnv('MYSQL_DATABASE') || 'railway',
+    port: parseInt(getEnv('DB_PORT') || getEnv('MYSQLPORT') || '3306'),
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 };
 
 // Parse MYSQL_URL, MYSQL_PUBLIC_URL, MYSQL_PRIVATE_URL, or DATABASE_URL if provided by Railway
-const connectionUrl = process.env.MYSQL_URL || process.env.MYSQL_PUBLIC_URL || process.env.DATABASE_URL || process.env.MYSQL_PRIVATE_URL;
+const connectionUrl = getEnv('MYSQL_URL') || getEnv('MYSQL_PUBLIC_URL') || getEnv('DATABASE_URL') || getEnv('MYSQL_PRIVATE_URL');
 if (connectionUrl) {
     try {
         const parsed = new URL(connectionUrl);
@@ -39,12 +42,12 @@ if (connectionUrl) {
 // Initialize DB Connection with automatic MySQL setup & SQLite local fallback
 async function initDB() {
     const isExplicitMysql = Boolean(
-        process.env.MYSQLHOST || 
-        process.env.MYSQL_URL || 
-        process.env.MYSQL_PUBLIC_URL || 
-        process.env.MYSQL_PRIVATE_URL || 
-        process.env.DATABASE_URL || 
-        process.env.DB_HOST
+        getEnv('MYSQLHOST') || 
+        getEnv('MYSQL_URL') || 
+        getEnv('MYSQL_PUBLIC_URL') || 
+        getEnv('MYSQL_PRIVATE_URL') || 
+        getEnv('DATABASE_URL') || 
+        getEnv('DB_HOST')
     );
 
     if (process.env.DB_TYPE !== 'sqlite' || isExplicitMysql) {
