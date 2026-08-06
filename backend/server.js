@@ -51,6 +51,16 @@ app.use('/api/teacher', teacherRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/notices', noticeRoutes);
 
+// Manual DB re-init endpoint for diagnostics
+app.get('/api/setup-db', async (req, res) => {
+    try {
+        await initDB();
+        res.json({ success: true, message: 'Database initialized successfully' });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message, stack: err.stack });
+    }
+});
+
 // Global 404 Handler
 app.use((req, res, next) => {
     res.status(404).json({ success: false, message: 'API Route not found' });
@@ -65,14 +75,15 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Start Server after Database Initialization
-initDB().then(() => {
-    app.listen(PORT, () => {
-        console.log(`===================================================`);
-        console.log(`School Management API Server running on port ${PORT}`);
-        console.log(`Health Check: http://localhost:${PORT}/api/health`);
-        console.log(`===================================================`);
+// Start Server immediately so health checks pass on Railway
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`===================================================`);
+    console.log(`School Management API Server running on port ${PORT}`);
+    console.log(`Health Check: http://localhost:${PORT}/api/health`);
+    console.log(`===================================================`);
+    
+    // Initialize Database after server is running
+    initDB().catch(err => {
+        console.error('Database initialization warning:', err.message);
     });
-}).catch(err => {
-    console.error('Failed to initialize database:', err);
 });
