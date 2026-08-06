@@ -11,32 +11,35 @@ let dbType = 'mysql'; // 'mysql' or 'sqlite'
 // Helper to get non-empty env var
 const getEnv = (key) => (process.env[key] && process.env[key].trim() !== '') ? process.env[key].trim() : null;
 
-const dbConfig = {
-    host: getEnv('DB_HOST') || getEnv('MYSQLHOST') || 'localhost',
-    user: getEnv('DB_USER') || getEnv('MYSQLUSER') || 'root',
-    password: getEnv('DB_PASSWORD') || getEnv('MYSQLPASSWORD') || getEnv('MYSQL_ROOT_PASSWORD') || '',
-    database: getEnv('DB_NAME') || getEnv('MYSQLDATABASE') || getEnv('MYSQL_DATABASE') || 'railway',
-    port: parseInt(getEnv('DB_PORT') || getEnv('MYSQLPORT') || '3306'),
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-};
+function buildDbConfig(urlOverride = null) {
+    const config = {
+        host: getEnv('DB_HOST') || getEnv('MYSQLHOST') || 'localhost',
+        user: getEnv('DB_USER') || getEnv('MYSQLUSER') || 'root',
+        password: getEnv('DB_PASSWORD') || getEnv('MYSQLPASSWORD') || getEnv('MYSQL_ROOT_PASSWORD') || '',
+        database: getEnv('DB_NAME') || getEnv('MYSQLDATABASE') || getEnv('MYSQL_DATABASE') || 'railway',
+        port: parseInt(getEnv('DB_PORT') || getEnv('MYSQLPORT') || '3306'),
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0
+    };
 
-// Parse MYSQL_URL, MYSQL_PUBLIC_URL, MYSQL_PRIVATE_URL, or DATABASE_URL if provided by Railway
-const connectionUrl = getEnv('MYSQL_URL') || getEnv('MYSQL_PUBLIC_URL') || getEnv('DATABASE_URL') || getEnv('MYSQL_PRIVATE_URL');
-if (connectionUrl) {
-    try {
-        const parsed = new URL(connectionUrl);
-        if (parsed.hostname) dbConfig.host = parsed.hostname;
-        if (parsed.username) dbConfig.user = parsed.username;
-        if (parsed.password) dbConfig.password = decodeURIComponent(parsed.password);
-        if (parsed.port) dbConfig.port = parseInt(parsed.port);
-        if (parsed.pathname && parsed.pathname.length > 1) {
-            dbConfig.database = parsed.pathname.substring(1);
+    const targetUrl = urlOverride || getEnv('MYSQL_URL') || getEnv('MYSQL_PRIVATE_URL') || getEnv('MYSQL_PUBLIC_URL') || getEnv('DATABASE_URL');
+    if (targetUrl) {
+        try {
+            const parsed = new URL(targetUrl);
+            if (parsed.hostname) config.host = parsed.hostname;
+            if (parsed.username) config.user = parsed.username;
+            if (parsed.password) config.password = decodeURIComponent(parsed.password);
+            if (parsed.port) config.port = parseInt(parsed.port);
+            if (parsed.pathname && parsed.pathname.length > 1) {
+                config.database = parsed.pathname.substring(1);
+            }
+        } catch (e) {
+            console.warn('Failed to parse connection URL string:', e.message);
         }
-    } catch (e) {
-        console.warn('Failed to parse MYSQL_URL string:', e.message);
     }
+
+    return config;
 }
 
 // Initialize DB Connection with automatic MySQL setup & SQLite local fallback
@@ -52,37 +55,49 @@ async function initDB() {
         getEnv('MYSQL_ROOT_PASSWORD')
     );
 
-    console.log(`[DB Setup Info] Resolved Config: Host=${dbConfig.host}, Port=${dbConfig.port}, User=${dbConfig.user}, DB=${dbConfig.database}, HasPassword=${Boolean(dbConfig.password)}, ExplicitMySQL=${isExplicitMysql}`);
+    // Array of connection candidate configs: Primary (internal/env), Public URL fallback
+    const candidateConfigs = [];
+    candidateConfigs.push({ name: 'Primary Config', config: buildDbConfig() });
+
+    const publicUrl = getEnv('MYSQL_PUBLIC_URL');
+    if (publicUrl) {
+        candidateConfigs.push({ name: 'Public Proxy Fallback', config: buildDbConfig(publicUrl) });
+    }
 
     if (process.env.DB_TYPE !== 'sqlite' || isExplicitMysql) {
-        let attempts = 0;
-        const maxAttempts = isExplicitMysql ? 5 : 1;
+        for (const candidate of candidateConfigs) {
+            const cfg = candidate.config;
+            console.log(`[DB Setup Info] Trying ${candidate.name}: Host=${cfg.host}, Port=${cfg.port}, User=${cfg.user}, DB=${cfg.database}`);
+            
+            let attempts = 0;
+            const maxAttempts = 3;
 
-        while (attempts < maxAttempts) {
-            attempts++;
-            try {
-                console.log(`Connecting to MySQL database '${dbConfig.database}' at ${dbConfig.host}:${dbConfig.port}... (Attempt ${attempts}/${maxAttempts})`);
-                
-                mysqlPool = mysql.createPool(dbConfig);
-                const [rows] = await mysqlPool.query('SELECT 1 + 1 AS solution');
-                console.log('Successfully connected to MySQL Database!');
-                dbType = 'mysql';
+            while (attempts < maxAttempts) {
+                attempts++;
+                try {
+                    console.log(`Connecting to MySQL database '${cfg.database}' at ${cfg.host}:${cfg.port}... (Attempt ${attempts}/${maxAttempts})`);
+                    
+                    mysqlPool = mysql.createPool(cfg);
+                    const [rows] = await mysqlPool.query('SELECT 1 + 1 AS solution');
+                    console.log(`Successfully connected to MySQL Database via ${candidate.name}!`);
+                    dbType = 'mysql';
 
-                await initMysqlTables();
-                await seedDatabaseIfEmpty();
-                return;
-            } catch (err) {
-                console.error(`MySQL connection attempt ${attempts} failed:`, err.message);
-                if (attempts < maxAttempts) {
-                    console.log('Retrying MySQL connection in 3 seconds...');
-                    await new Promise(res => setTimeout(res, 3000));
-                } else if (!isExplicitMysql) {
-                    console.warn('Falling back to embedded SQLite for local execution.');
-                } else {
-                    console.error('Fatal: Could not connect to MySQL database:', err.message);
-                    throw err;
+                    await initMysqlTables();
+                    await seedDatabaseIfEmpty();
+                    return;
+                } catch (err) {
+                    console.error(`MySQL connection attempt ${attempts} for ${candidate.name} failed:`, err.message);
+                    if (attempts < maxAttempts) {
+                        await new Promise(res => setTimeout(res, 2000));
+                    }
                 }
             }
+        }
+
+        if (isExplicitMysql) {
+            console.error('Fatal: Could not connect to MySQL database via any configuration.');
+        } else {
+            console.warn('Falling back to embedded SQLite for local execution.');
         }
     }
 
