@@ -19,8 +19,8 @@ const dbConfig = {
     queueLimit: 0
 };
 
-// Parse MYSQL_URL or DATABASE_URL if provided by Railway
-const connectionUrl = process.env.MYSQL_URL || process.env.DATABASE_URL || process.env.MYSQL_PRIVATE_URL;
+// Parse MYSQL_URL, MYSQL_PUBLIC_URL, MYSQL_PRIVATE_URL, or DATABASE_URL if provided by Railway
+const connectionUrl = process.env.MYSQL_URL || process.env.MYSQL_PUBLIC_URL || process.env.DATABASE_URL || process.env.MYSQL_PRIVATE_URL;
 if (connectionUrl) {
     try {
         const parsed = new URL(connectionUrl);
@@ -38,7 +38,14 @@ if (connectionUrl) {
 
 // Initialize DB Connection with automatic MySQL setup & SQLite local fallback
 async function initDB() {
-    const isExplicitMysql = Boolean(process.env.MYSQLHOST || process.env.MYSQL_URL || process.env.DB_HOST);
+    const isExplicitMysql = Boolean(
+        process.env.MYSQLHOST || 
+        process.env.MYSQL_URL || 
+        process.env.MYSQL_PUBLIC_URL || 
+        process.env.MYSQL_PRIVATE_URL || 
+        process.env.DATABASE_URL || 
+        process.env.DB_HOST
+    );
 
     if (process.env.DB_TYPE !== 'sqlite' || isExplicitMysql) {
         let attempts = 0;
