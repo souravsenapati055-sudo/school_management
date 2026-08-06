@@ -38,35 +38,41 @@ if (connectionUrl) {
 
 // Initialize DB Connection with automatic MySQL setup & SQLite local fallback
 async function initDB() {
-    // Attempt MySQL first unless explicitly set to sqlite
-    if (process.env.DB_TYPE !== 'sqlite') {
-        try {
-            // First connect without database selected to ensure DB exists
-            const tempConn = await mysql.createConnection({
-                host: dbConfig.host,
-                user: dbConfig.user,
-                password: dbConfig.password,
-                port: dbConfig.port
-            });
-            await tempConn.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\`;`);
-            await tempConn.end();
+    const isExplicitMysql = Boolean(process.env.MYSQLHOST || process.env.MYSQL_URL || process.env.DB_HOST);
 
-            mysqlPool = mysql.createPool(dbConfig);
-            // Test connection
-            const [rows] = await mysqlPool.query('SELECT 1 + 1 AS solution');
-            console.log('Connected to MySQL Database successfully.');
-            dbType = 'mysql';
+    if (process.env.DB_TYPE !== 'sqlite' || isExplicitMysql) {
+        let attempts = 0;
+        const maxAttempts = isExplicitMysql ? 5 : 1;
 
-            await initMysqlTables();
-            await seedDatabaseIfEmpty();
-            return;
-        } catch (err) {
-            console.warn('MySQL connection failed or not configured. Falling back to embedded SQLite for local execution.');
-            console.warn('Error details:', err.message);
+        while (attempts < maxAttempts) {
+            attempts++;
+            try {
+                console.log(`Connecting to MySQL database '${dbConfig.database}' at ${dbConfig.host}:${dbConfig.port}... (Attempt ${attempts}/${maxAttempts})`);
+                
+                mysqlPool = mysql.createPool(dbConfig);
+                const [rows] = await mysqlPool.query('SELECT 1 + 1 AS solution');
+                console.log('Successfully connected to MySQL Database!');
+                dbType = 'mysql';
+
+                await initMysqlTables();
+                await seedDatabaseIfEmpty();
+                return;
+            } catch (err) {
+                console.error(`MySQL connection attempt ${attempts} failed:`, err.message);
+                if (attempts < maxAttempts) {
+                    console.log('Retrying MySQL connection in 3 seconds...');
+                    await new Promise(res => setTimeout(res, 3000));
+                } else if (!isExplicitMysql) {
+                    console.warn('Falling back to embedded SQLite for local execution.');
+                } else {
+                    console.error('Fatal: Could not connect to MySQL database:', err.message);
+                    throw err;
+                }
+            }
         }
     }
 
-    // Fallback to SQLite
+    // Fallback to SQLite (only if no explicit MySQL variables provided)
     dbType = 'sqlite';
     const dbPath = path.join(__dirname, '../school.sqlite');
     sqliteDb = new sqlite3.Database(dbPath);
