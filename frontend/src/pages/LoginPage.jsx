@@ -371,6 +371,15 @@ const LoginPage = () => {
                                     <span>OTP code has been sent to <strong className="font-mono text-white">{forgotMaskedEmail}</strong></span>
                                 </div>
 
+                                {devOtpNotice && (
+                                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-1">
+                                        <div className="font-bold flex items-center space-x-1.5 text-amber-400">
+                                            <span>🔑 Dev Test Mode Active</span>
+                                        </div>
+                                        <p>Your OTP Code: <strong className="font-mono text-base text-amber-300 tracking-widest">{devOtpNotice}</strong></p>
+                                    </div>
+                                )}
+
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
                                         Enter 6-Digit OTP Code

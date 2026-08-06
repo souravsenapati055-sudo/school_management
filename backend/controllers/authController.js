@@ -233,9 +233,12 @@ const requestPasswordResetOTP = async (req, res) => {
 
         return res.json({
             success: true,
-            message: `OTP sent successfully to registered email (${masked})`,
+            message: emailResult.sent 
+                ? `OTP sent successfully to registered email (${masked})`
+                : `OTP generated. (SMTP credentials not configured on Railway; OTP is displayed below for testing)`,
             maskedEmail: masked,
-            userId: dbUserId
+            userId: dbUserId,
+            devOtp: emailResult.sent ? null : otp
         });
 
     } catch (err) {
