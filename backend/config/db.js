@@ -11,13 +11,30 @@ let dbType = 'mysql'; // 'mysql' or 'sqlite'
 const dbConfig = {
     host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
     user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
-    password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '',
-    database: process.env.DB_NAME || process.env.MYSQLDATABASE || 'railway',
+    password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || process.env.MYSQL_ROOT_PASSWORD || '',
+    database: process.env.DB_NAME || process.env.MYSQLDATABASE || process.env.MYSQL_DATABASE || 'railway',
     port: parseInt(process.env.DB_PORT || process.env.MYSQLPORT || '3306'),
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 };
+
+// Parse MYSQL_URL or DATABASE_URL if provided by Railway
+const connectionUrl = process.env.MYSQL_URL || process.env.DATABASE_URL || process.env.MYSQL_PRIVATE_URL;
+if (connectionUrl) {
+    try {
+        const parsed = new URL(connectionUrl);
+        if (parsed.hostname) dbConfig.host = parsed.hostname;
+        if (parsed.username) dbConfig.user = parsed.username;
+        if (parsed.password) dbConfig.password = decodeURIComponent(parsed.password);
+        if (parsed.port) dbConfig.port = parseInt(parsed.port);
+        if (parsed.pathname && parsed.pathname.length > 1) {
+            dbConfig.database = parsed.pathname.substring(1);
+        }
+    } catch (e) {
+        console.warn('Failed to parse MYSQL_URL string:', e.message);
+    }
+}
 
 // Initialize DB Connection with automatic MySQL setup & SQLite local fallback
 async function initDB() {
