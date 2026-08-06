@@ -18,8 +18,8 @@ const Navbar = () => {
                             <School className="w-6 h-6" />
                         </div>
                         <div>
-                            <span className="text-lg font-bold text-gray-900 dark:text-white leading-none block">
-                                GREENWOOD HIGH
+                            <span className="text-sm sm:text-base font-bold text-gray-900 dark:text-white leading-none block">
+                                MAJURIA BAISPATRA S.M HIGH SCHOOL
                             </span>
                             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                                 School Management Portal

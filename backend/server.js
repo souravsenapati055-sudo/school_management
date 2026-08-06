@@ -1,9 +1,9 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const path = require('path');
 const { initDB } = require('./config/db');
 
 // Route Imports
@@ -12,6 +12,7 @@ const officerRoutes = require('./routes/officerRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const noticeRoutes = require('./routes/noticeRoutes');
+const announcementRoutes = require('./routes/announcementRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -50,6 +51,7 @@ app.use('/api/officer', officerRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/notices', noticeRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 // Manual DB re-init endpoint for diagnostics
 app.get('/api/setup-db', async (req, res) => {

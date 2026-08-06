@@ -143,20 +143,26 @@ const updateStudent = async (req, res) => {
             father_name, mother_name, address, mobile_number, email, admission_number, dob
         } = req.body;
 
+        const cleanAge = (age !== undefined && age !== null && age !== '' && !isNaN(age)) ? parseInt(age) : null;
+        const cleanDob = (dob && String(dob).trim() !== '') ? String(dob).trim() : null;
+        const cleanEmail = (email && String(email).trim() !== '') ? String(email).trim() : null;
+        const cleanMobile = (mobile_number && String(mobile_number).trim() !== '') ? String(mobile_number).trim() : null;
+
         await query(`UPDATE students SET 
             name = ?, roll_number = ?, class_name = ?, section_name = ?, age = ?, gender = ?,
             father_name = ?, mother_name = ?, address = ?, mobile_number = ?, email = ?,
             admission_number = ?, dob = ?
             WHERE user_id = ?`, [
-            name, roll_number, class_name, section_name, age, gender,
-            father_name, mother_name, address, mobile_number, email, admission_number, dob,
+            name, roll_number, class_name, section_name, cleanAge, gender || null,
+            father_name || null, mother_name || null, address || null, cleanMobile, cleanEmail,
+            admission_number || null, cleanDob,
             userId
         ]);
 
         return res.json({ success: true, message: 'Student updated successfully' });
     } catch (err) {
         console.error('Officer updateStudent error:', err);
-        return res.status(500).json({ success: false, message: 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
     }
 };
 
@@ -353,6 +359,116 @@ const globalSearch = async (req, res) => {
     }
 };
 
+const getOfficerProfile = async (req, res) => {
+    try {
+        const userId = req.user.user_id;
+        const [officers] = await query('SELECT user_id, name, email, mobile, designation FROM officers WHERE user_id = ?', [userId]);
+
+        if (!officers || officers.length === 0) {
+            return res.status(404).json({ success: false, message: 'Officer profile not found' });
+        }
+
+        return res.json({ success: true, officer: officers[0] });
+    } catch (err) {
+        console.error('Officer getOfficerProfile error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
+    }
+};
+
+const updateOfficerProfile = async (req, res) => {
+    try {
+        const currentUserId = req.user.user_id;
+        const { name, newUserId, email, mobile, designation, currentPassword, newPassword } = req.body;
+
+        // 1. Verify existing officer record
+        const [existingOfficers] = await query('SELECT * FROM officers WHERE user_id = ?', [currentUserId]);
+        if (!existingOfficers || existingOfficers.length === 0) {
+            return res.status(404).json({ success: false, message: 'Officer record not found' });
+        }
+
+        // 2. If password change requested, verify current password
+        if (newPassword && newPassword.trim() !== '') {
+            if (!currentPassword) {
+                return res.status(400).json({ success: false, message: 'Current password is required to set a new password' });
+            }
+            const [users] = await query('SELECT * FROM users WHERE user_id = ?', [currentUserId]);
+            if (!users || users.length === 0) {
+                return res.status(404).json({ success: false, message: 'User account not found' });
+            }
+            const isMatch = await bcrypt.compare(currentPassword, users[0].password_hash);
+            if (!isMatch) {
+                return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+            }
+            const salt = await bcrypt.genSalt(10);
+            const hashedNewPass = await bcrypt.hash(newPassword.trim(), salt);
+            await query('UPDATE users SET password_hash = ? WHERE user_id = ?', [hashedNewPass, currentUserId]);
+        }
+
+        // 3. Handle User ID change if newUserId is specified and different
+        let finalUserId = currentUserId;
+        if (newUserId && newUserId.trim() !== '' && newUserId.trim() !== currentUserId) {
+            const cleanNewId = newUserId.trim();
+            const [checkUser] = await query('SELECT * FROM users WHERE user_id = ?', [cleanNewId]);
+            if (checkUser && checkUser.length > 0) {
+                return res.status(400).json({ success: false, message: `User ID '${cleanNewId}' is already taken` });
+            }
+
+            // Disable foreign key checks for update if using MySQL/SQLite
+            try {
+                await query('SET FOREIGN_KEY_CHECKS = 0');
+            } catch (e) {
+                // Ignore if SQLite
+            }
+
+            await query('UPDATE users SET user_id = ? WHERE user_id = ?', [cleanNewId, currentUserId]);
+            await query('UPDATE officers SET user_id = ? WHERE user_id = ?', [cleanNewId, currentUserId]);
+
+            try {
+                await query('SET FOREIGN_KEY_CHECKS = 1');
+            } catch (e) {
+                // Ignore if SQLite
+            }
+
+            finalUserId = cleanNewId;
+        }
+
+        // 4. Update Officer details (name, email, mobile, designation)
+        const cleanName = name ? name.trim() : existingOfficers[0].name;
+        const cleanEmail = email ? email.trim() : null;
+        const cleanMobile = mobile ? mobile.trim() : null;
+        const cleanDesig = designation ? designation.trim() : 'Administrator';
+
+        await query('UPDATE officers SET name = ?, email = ?, mobile = ?, designation = ? WHERE user_id = ?', [
+            cleanName, cleanEmail, cleanMobile, cleanDesig, finalUserId
+        ]);
+
+        // Generate updated JWT token
+        const jwt = require('jsonwebtoken');
+        const token = jwt.sign(
+            { id: req.user.id, user_id: finalUserId, role: 'Officer', name: cleanName },
+            process.env.JWT_SECRET || 'school_management_jwt_secret_key_2026_super_secure',
+            { expiresIn: '24h' }
+        );
+
+        return res.json({
+            success: true,
+            message: 'Profile & Security settings updated successfully',
+            token,
+            user: {
+                user_id: finalUserId,
+                name: cleanName,
+                email: cleanEmail,
+                mobile: cleanMobile,
+                designation: cleanDesig,
+                role: 'Officer'
+            }
+        });
+    } catch (err) {
+        console.error('Officer updateOfficerProfile error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
+    }
+};
+
 module.exports = {
     getDashboardStats,
     createStudent,
@@ -370,5 +486,7 @@ module.exports = {
     assignSubjectsToClass,
     createExam,
     getExams,
-    globalSearch
+    globalSearch,
+    getOfficerProfile,
+    updateOfficerProfile
 };

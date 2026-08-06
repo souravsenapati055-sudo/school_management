@@ -17,6 +17,7 @@ import TeacherManagement from './pages/officer/TeacherManagement';
 import ClassSubjectManagement from './pages/officer/ClassSubjectManagement';
 import ExamManagement from './pages/officer/ExamManagement';
 import NoticeManagement from './pages/officer/NoticeManagement';
+import OfficerProfile from './pages/officer/OfficerProfile';
 
 // Teacher Pages
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
@@ -65,6 +66,7 @@ function App() {
               <Route path="/officer/class-subjects" element={<ClassSubjectManagement />} />
               <Route path="/officer/exams" element={<ExamManagement />} />
               <Route path="/officer/notices" element={<NoticeManagement />} />
+              <Route path="/officer/profile" element={<OfficerProfile />} />
             </Route>
           </Route>
 

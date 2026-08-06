@@ -7,6 +7,8 @@ const { verifyToken, requireRole } = require('../middleware/auth');
 router.use(verifyToken, requireRole(['Officer']));
 
 router.get('/dashboard-stats', officerController.getDashboardStats);
+router.get('/profile', officerController.getOfficerProfile);
+router.put('/profile', officerController.updateOfficerProfile);
 
 // Student management
 router.post('/students', officerController.createStudent);

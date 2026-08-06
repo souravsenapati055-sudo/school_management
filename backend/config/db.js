@@ -223,6 +223,21 @@ async function initMysqlTables() {
             max_marks DECIMAL(5,2) DEFAULT 100,
             FOREIGN KEY (result_id) REFERENCES results(id) ON DELETE CASCADE,
             UNIQUE KEY uk_res_subj (result_id, subject_name)
+        )`,
+        `CREATE TABLE IF NOT EXISTS password_otps (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id VARCHAR(50) NOT NULL,
+            email VARCHAR(100) NOT NULL,
+            otp VARCHAR(10) NOT NULL,
+            expires_at DATETIME NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_user_otp (user_id, otp)
+        )`,
+        `CREATE TABLE IF NOT EXISTS announcements (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            text TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`
     ];
 
@@ -233,6 +248,14 @@ async function initMysqlTables() {
             console.warn('MySQL table creation query notice:', e.message);
         }
     }
+
+    // Safely add pdf_url column to notices table if not present
+    try {
+        await mysqlPool.query(`ALTER TABLE notices ADD COLUMN pdf_url VARCHAR(255) AFTER content`);
+    } catch (e) {
+        // Ignored if column already exists
+    }
+
     console.log('MySQL schema tables verified/created successfully.');
 }
 
@@ -413,6 +436,15 @@ async function initSqliteTables() {
                 marks_obtained REAL NOT NULL,
                 max_marks REAL DEFAULT 100,
                 UNIQUE(result_id, subject_name)
+            )`);
+
+            sqliteDb.run(`CREATE TABLE IF NOT EXISTS password_otps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                email TEXT NOT NULL,
+                otp TEXT NOT NULL,
+                expires_at DATETIME NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )`, async (err) => {
                 if (err) return reject(err);
                 await seedDatabaseIfEmpty();

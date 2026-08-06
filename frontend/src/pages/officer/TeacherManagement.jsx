@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, Edit2, Trash2, X, GraduationCap, CheckCircle2 } from 'lucide-react';
+import { Users, UserPlus, Edit2, Trash2, X, GraduationCap, CheckCircle2, Mail } from 'lucide-react';
 import API from '../../services/api';
 import Toast from '../../components/Toast';
 
@@ -134,11 +134,21 @@ const TeacherManagement = () => {
                                 <p className="text-xs text-purple-600 dark:text-purple-400 font-semibold">{t.designation}</p>
                             </div>
 
-                            <div className="mt-3 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                            <div className="mt-3 space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
                                 <div><span className="font-medium text-gray-700 dark:text-gray-300">Subject:</span> {t.subject || 'Unassigned'}</div>
                                 <div><span className="font-medium text-gray-700 dark:text-gray-300">Qualification:</span> {t.qualification || 'N/A'}</div>
                                 <div><span className="font-medium text-gray-700 dark:text-gray-300">Mobile:</span> {t.mobile || 'N/A'}</div>
-                                <div><span className="font-medium text-gray-700 dark:text-gray-300">Email:</span> {t.email || 'N/A'}</div>
+                                <div className="flex items-center space-x-1 pt-1">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">Gmail:</span> 
+                                    {t.email ? (
+                                        <span className="inline-flex items-center space-x-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                                            <Mail className="w-3 h-3" />
+                                            <span>{t.email}</span>
+                                        </span>
+                                    ) : (
+                                        <span className="text-gray-400 italic">Not assigned</span>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -210,16 +220,19 @@ const TeacherManagement = () => {
                                         type="text"
                                         value={formData.mobile}
                                         onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+                                        placeholder="10-digit mobile"
                                         className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Gmail / Email *</label>
                                     <input
                                         type="email"
+                                        required
                                         value={formData.email}
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none"
+                                        placeholder="teacher@gmail.com"
+                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:border-purple-500"
                                     />
                                 </div>
                             </div>

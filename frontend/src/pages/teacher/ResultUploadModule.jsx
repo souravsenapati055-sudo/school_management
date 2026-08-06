@@ -5,6 +5,7 @@ import Toast from '../../components/Toast';
 
 const ResultUploadModule = () => {
     const [exams, setExams] = useState([]);
+    const [selectedYear, setSelectedYear] = useState('2026');
     const [selectedExam, setSelectedExam] = useState('Half Yearly Exam');
     const [selectedClass, setSelectedClass] = useState('Class 8');
     const [selectedSection, setSelectedSection] = useState('A');
@@ -141,7 +142,20 @@ const ResultUploadModule = () => {
             </div>
 
             {/* Selector Grid */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm grid grid-cols-1 sm:grid-cols-5 gap-4">
+                <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Academic Year</label>
+                    <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(e.target.value)}
+                        className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white font-bold focus:outline-none"
+                    >
+                        <option value="2026">2026</option>
+                        <option value="2025">2025</option>
+                        <option value="2024">2024</option>
+                    </select>
+                </div>
+
                 <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Exam Term</label>
                     <select

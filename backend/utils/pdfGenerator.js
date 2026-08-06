@@ -29,14 +29,14 @@ function generateMarksheetPDF(studentData, resultData, subjectMarks, attendanceD
 
     // School Title & Subtitle
     doc.fillColor('#FFFFFF')
-       .fontSize(22)
+       .fontSize(20)
        .font('Helvetica-Bold')
-       .text('GREENWOOD HIGH SCHOOL', 50, 55, { align: 'center' });
+       .text('MAJURIA BAISPATRA S.M HIGH SCHOOL', 50, 55, { align: 'center' });
 
-    doc.fontSize(11)
+    doc.fontSize(10)
        .font('Helvetica')
-       .text('Affiliated to Central Board of Secondary Education (CBSE)', { align: 'center' })
-       .text('123 Academic Enclave, Knowledge City | Email: info@greenwoodschool.edu', { align: 'center' });
+       .text('Department of School Education | Govt. Recognized', { align: 'center' })
+       .text('BAISPATRA, SARENGA, BANKURA | Email: info@majpuriabaispatra.edu.in', { align: 'center' });
 
     doc.moveDown(1.5);
 

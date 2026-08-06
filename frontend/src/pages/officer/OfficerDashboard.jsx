@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
     Users, GraduationCap, Calendar, Bell, 
-    TrendingUp, CheckCircle2, Award, BookOpen 
+    TrendingUp, CheckCircle2, Award, BookOpen, ShieldCheck 
 } from 'lucide-react';
 import API from '../../services/api';
 
@@ -37,13 +37,22 @@ const OfficerDashboard = () => {
         <div className="space-y-6">
             
             {/* Page Banner Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Officer Administrative Dashboard
-                </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    System-wide analytics, enrollment stats, attendance overview, and notices.
-                </p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 to-blue-950 p-6 rounded-2xl border border-slate-800 text-white shadow-lg">
+                <div>
+                    <h1 className="text-2xl font-bold text-white">
+                        Officer Administrative Dashboard
+                    </h1>
+                    <p className="text-xs text-slate-300 mt-1">
+                        System-wide analytics, enrollment stats, attendance overview, and notices.
+                    </p>
+                </div>
+                <a 
+                    href="/officer/profile"
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition shrink-0 flex items-center space-x-2"
+                >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>My Profile & Security Settings</span>
+                </a>
             </div>
 
             {/* 4 Stat Cards */}

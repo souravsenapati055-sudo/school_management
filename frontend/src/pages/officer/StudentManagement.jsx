@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
     Plus, Search, UserPlus, Edit2, Trash2, X, 
-    CheckCircle2, GraduationCap, Filter, Eye 
+    CheckCircle2, GraduationCap, Filter, Eye, Mail 
 } from 'lucide-react';
 import API from '../../services/api';
 import Toast from '../../components/Toast';
@@ -183,7 +183,7 @@ const StudentManagement = () => {
                                 <th className="p-4">Student Name</th>
                                 <th className="p-4">Class & Sec</th>
                                 <th className="p-4">Roll No</th>
-                                <th className="p-4">Father Name</th>
+                                <th className="p-4">Assigned Gmail / Email</th>
                                 <th className="p-4">Mobile</th>
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
@@ -205,8 +205,15 @@ const StudentManagement = () => {
                                     <td className="p-4 font-mono text-gray-700 dark:text-gray-300">
                                         #{st.roll_number}
                                     </td>
-                                    <td className="p-4 text-gray-600 dark:text-gray-300">
-                                        {st.father_name || 'N/A'}
+                                    <td className="p-4 text-gray-600 dark:text-gray-300 text-xs font-medium">
+                                        {st.email ? (
+                                            <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
+                                                <Mail className="w-3.5 h-3.5 text-emerald-500" />
+                                                <span>{st.email}</span>
+                                            </span>
+                                        ) : (
+                                            <span className="text-gray-400 italic">No email assigned</span>
+                                        )}
                                     </td>
                                     <td className="p-4 text-gray-600 dark:text-gray-300 font-mono text-xs">
                                         {st.mobile_number || 'N/A'}
@@ -347,12 +354,17 @@ const StudentManagement = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Email (Optional)</label>
+                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
+                                        <span>Gmail / Email Address *</span>
+                                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">Required for Password Reset OTP</span>
+                                    </label>
                                     <input
                                         type="email"
+                                        required
                                         value={formData.email}
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none"
+                                        placeholder="e.g. student@gmail.com"
+                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:border-emerald-500"
                                     />
                                 </div>
                             </div>

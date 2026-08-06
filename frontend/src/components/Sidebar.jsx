@@ -19,6 +19,7 @@ const Sidebar = () => {
             { label: 'Classes & Subjects', path: '/officer/class-subjects', icon: BookOpen },
             { label: 'Exams & Schedule', path: '/officer/exams', icon: Calendar },
             { label: 'Notice Board', path: '/officer/notices', icon: Bell },
+            { label: 'My Profile & Security', path: '/officer/profile', icon: KeyRound },
         ],
         Teacher: [
             { label: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard },
@@ -29,6 +30,10 @@ const Sidebar = () => {
         ],
         Student: [
             { label: 'My Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
+            { label: 'Report Cards & Marks', path: '/student/dashboard?tab=marks', icon: Award },
+            { label: 'My Attendance History', path: '/student/dashboard?tab=attendance', icon: CheckSquare },
+            { label: 'Homework & E-Notes', path: '/student/dashboard?tab=homework', icon: FileText },
+            { label: 'Notice Board', path: '/student/dashboard?tab=notices', icon: Bell },
             { label: 'Change Password', path: '/change-password', icon: KeyRound },
         ]
     };

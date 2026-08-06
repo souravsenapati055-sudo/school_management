@@ -1,4 +1,4 @@
-# 🎓 Greenwood High School Management System (Full Stack)
+# 🎓 Majuria Baispatra S.M High School Management System (Full Stack)
 
 A complete, modern, responsive, role-based **School Management System** built with **React, Vite, Tailwind CSS, Node.js, Express, JWT, PDFKit**, and **MySQL**.
 
