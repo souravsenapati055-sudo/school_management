@@ -12,12 +12,25 @@ const login = async (req, res) => {
             return res.status(400).json({ success: false, message: 'User ID and Password are required' });
         }
 
-        const cleanUserId = userId.trim().toUpperCase();
+        const cleanInput = userId.trim();
 
-        // 1. Fetch user from credentials table
-        const [users] = await query('SELECT * FROM users WHERE user_id = ?', [cleanUserId]);
+        // 1. Fetch user from credentials table (by exact or case-insensitive user_id)
+        let [users] = await query('SELECT * FROM users WHERE LOWER(user_id) = LOWER(?)', [cleanInput]);
+
+        // If not found by user_id, check if input matches a Student's Admission ID or Email!
         if (users.length === 0) {
-            return res.status(401).json({ success: false, message: 'Invalid User ID or Password' });
+            const [students] = await query(
+                'SELECT user_id FROM students WHERE LOWER(admission_number) = LOWER(?) OR LOWER(email) = LOWER(?)',
+                [cleanInput, cleanInput]
+            );
+            if (students.length > 0) {
+                const studentUserId = students[0].user_id;
+                [users] = await query('SELECT * FROM users WHERE LOWER(user_id) = LOWER(?)', [studentUserId]);
+            }
+        }
+
+        if (users.length === 0) {
+            return res.status(401).json({ success: false, message: 'Invalid Login Credentials (ID, Admission No, or Password)' });
         }
 
         const user = users[0];

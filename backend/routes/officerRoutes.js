@@ -13,6 +13,7 @@ router.put('/profile', officerController.updateOfficerProfile);
 // Student management
 router.post('/students', officerController.createStudent);
 router.get('/students', officerController.getStudents);
+router.post('/students/promote', officerController.promoteStudent);
 router.put('/students/:userId', officerController.updateStudent);
 router.delete('/students/:userId', officerController.deleteStudent);
 

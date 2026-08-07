@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
     Plus, Search, UserPlus, Edit2, Trash2, X, 
-    CheckCircle2, GraduationCap, Filter, Eye, Mail, Printer 
+    CheckCircle2, GraduationCap, Filter, Eye, Mail, Printer, TrendingUp 
 } from 'lucide-react';
 import API from '../../services/api';
 import Toast from '../../components/Toast';
@@ -16,6 +16,14 @@ const StudentManagement = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingStudent, setEditingStudent] = useState(null);
     const [toast, setToast] = useState(null);
+
+    // Promote Modal State
+    const [promotingStudent, setPromotingStudent] = useState(null);
+    const [promoteData, setPromoteData] = useState({
+        target_class_name: 'Class 9',
+        target_section_name: 'A',
+        new_roll_number: ''
+    });
 
     // Form fields for Create/Edit
     const [formData, setFormData] = useState({
@@ -48,11 +56,21 @@ const StudentManagement = () => {
 
     // Live auto-generated User ID preview
     const previewUserId = () => {
-        if (!formData.name.trim()) return 'EXAMPLE849';
+        if (!formData.name.trim()) return 'SOURAV949';
         const firstName = formData.name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase();
         const classNum = formData.class_name.replace(/\D/g, '') || '8';
         const roll = formData.roll_number || '49';
         return `${firstName}${classNum}${roll}`.toUpperCase();
+    };
+
+    // Live auto-generated Admission ID preview: UPPERCASE(FirstName + Year + Roll + Section) e.g. SOURAV202649A
+    const previewAdmissionId = () => {
+        if (!formData.name.trim()) return 'SOURAV202649A';
+        const firstName = formData.name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase();
+        const year = new Date().getFullYear();
+        const roll = formData.roll_number || '49';
+        const section = (formData.section_name || 'A').trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        return `${firstName}${year}${roll}${section}`;
     };
 
     // Live auto-generated Default Password preview (Name + Class Digit + Roll Number + Section)
@@ -74,6 +92,7 @@ const StudentManagement = () => {
                 if (res.data.success) {
                     setToast({ type: 'success', message: 'Student updated successfully' });
                     setEditingStudent(null);
+                    setIsCreateModalOpen(false);
                 }
             } else {
                 const res = await API.post('/officer/students', formData);
@@ -99,6 +118,42 @@ const StudentManagement = () => {
             }
         } catch (err) {
             setToast({ type: 'error', message: 'Failed to delete student' });
+        }
+    };
+
+    const openPromoteModal = (st) => {
+        setPromotingStudent(st);
+        let nextClass = 'Class 9';
+        const classMatch = st.class_name ? st.class_name.match(/\d+/) : null;
+        if (classMatch) {
+            const nextNum = parseInt(classMatch[0]) + 1;
+            if (nextNum <= 12) nextClass = `Class ${nextNum}`;
+            else nextClass = 'Graduated';
+        }
+        setPromoteData({
+            target_class_name: nextClass,
+            target_section_name: st.section_name || 'A',
+            new_roll_number: st.roll_number || ''
+        });
+    };
+
+    const handlePromoteStudent = async (e) => {
+        e.preventDefault();
+        if (!promotingStudent) return;
+        try {
+            const res = await API.post('/officer/students/promote', {
+                user_id: promotingStudent.user_id,
+                target_class_name: promoteData.target_class_name,
+                target_section_name: promoteData.target_section_name,
+                new_roll_number: promoteData.new_roll_number
+            });
+            if (res.data.success) {
+                setToast({ type: 'success', message: res.data.message });
+                setPromotingStudent(null);
+                fetchStudents();
+            }
+        } catch (err) {
+            setToast({ type: 'error', message: err.response?.data?.message || 'Failed to promote student' });
         }
     };
 
@@ -260,12 +315,13 @@ const StudentManagement = () => {
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 dark:bg-gray-700/40 text-gray-500 dark:text-gray-400 font-semibold text-xs uppercase tracking-wider">
                             <tr>
+                                <th className="p-4">Admission ID / Login ID</th>
                                 <th className="p-4">User ID</th>
                                 <th className="p-4">Default Password</th>
                                 <th className="p-4">Student Name</th>
                                 <th className="p-4">Class & Sec</th>
                                 <th className="p-4">Roll No</th>
-                                <th className="p-4">Assigned Gmail / Email</th>
+                                <th className="p-4">Assigned Email</th>
                                 <th className="p-4">Mobile</th>
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
@@ -273,7 +329,10 @@ const StudentManagement = () => {
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
                             {students.map((st) => (
                                 <tr key={st.user_id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition">
-                                    <td className="p-4 font-mono font-bold text-brand-600 dark:text-brand-400">
+                                    <td className="p-4 font-mono font-black text-emerald-600 dark:text-emerald-400">
+                                        {st.admission_number || st.user_id}
+                                    </td>
+                                    <td className="p-4 font-mono font-bold text-gray-600 dark:text-gray-400 text-xs">
                                         {st.user_id}
                                     </td>
                                     <td className="p-4">
@@ -289,7 +348,7 @@ const StudentManagement = () => {
                                             {st.class_name} - {st.section_name}
                                         </span>
                                     </td>
-                                    <td className="p-4 font-mono text-gray-700 dark:text-gray-300">
+                                    <td className="p-4 font-mono text-gray-900 dark:text-white font-bold">
                                         #{st.roll_number}
                                     </td>
                                     <td className="p-4 text-gray-600 dark:text-gray-300 text-xs font-medium">
@@ -299,17 +358,24 @@ const StudentManagement = () => {
                                                 <span>{st.email}</span>
                                             </span>
                                         ) : (
-                                            <span className="text-gray-400 italic">No email assigned</span>
+                                            <span className="text-gray-400 italic">No email</span>
                                         )}
                                     </td>
                                     <td className="p-4 text-gray-600 dark:text-gray-300 font-mono text-xs">
                                         {st.mobile_number || 'N/A'}
                                     </td>
-                                    <td className="p-4 text-right space-x-2">
+                                    <td className="p-4 text-right space-x-1.5">
+                                        <button
+                                            onClick={() => openPromoteModal(st)}
+                                            className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50"
+                                            title="Promote Student to Next Class"
+                                        >
+                                            <TrendingUp className="w-4 h-4" />
+                                        </button>
                                         <button
                                             onClick={() => openEditModal(st)}
                                             className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/40"
-                                            title="Edit Student"
+                                            title="Edit Student Profile"
                                         >
                                             <Edit2 className="w-4 h-4" />
                                         </button>
@@ -325,7 +391,7 @@ const StudentManagement = () => {
                             ))}
                             {students.length === 0 && !loading && (
                                 <tr>
-                                    <td colSpan={8} className="p-8 text-center text-gray-400 text-sm">
+                                    <td colSpan={9} className="p-8 text-center text-gray-400 text-sm">
                                         No student records match the filter criteria.
                                     </td>
                                 </tr>
@@ -352,14 +418,18 @@ const StudentManagement = () => {
                         <form onSubmit={handleSaveStudent} className="p-6 space-y-4">
                             
                             {!editingStudent && (
-                                <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/60 space-y-1.5 text-xs text-blue-900 dark:text-blue-200">
-                                    <div className="flex items-center justify-between">
-                                        <span>Generated User ID: <strong className="font-mono text-brand-600 dark:text-brand-400 font-bold">{previewUserId()}</strong></span>
-                                        <span className="text-[10px] bg-blue-200 dark:bg-blue-800 px-2 py-0.5 rounded-md">Auto UpperCase</span>
+                                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 to-emerald-50 dark:from-blue-950/50 dark:to-emerald-950/50 border border-blue-100 dark:border-blue-900/60 space-y-2 text-xs">
+                                    <div className="flex items-center justify-between text-emerald-900 dark:text-emerald-200">
+                                        <span>Admission ID (Login Identifier): <strong className="font-mono text-emerald-600 dark:text-emerald-400 font-black">{previewAdmissionId()}</strong></span>
+                                        <span className="text-[10px] bg-emerald-200 dark:bg-emerald-800 px-2 py-0.5 rounded-md font-bold">Unique Formula</span>
                                     </div>
-                                    <div className="flex items-center justify-between pt-1.5 border-t border-blue-100/70 dark:border-blue-900/50">
+                                    <div className="flex items-center justify-between pt-1.5 border-t border-blue-100/70 dark:border-blue-900/50 text-blue-900 dark:text-blue-200">
+                                        <span>Internal User ID: <strong className="font-mono text-brand-600 dark:text-brand-400 font-bold">{previewUserId()}</strong></span>
+                                        <span className="text-[10px] bg-blue-200 dark:bg-blue-800 px-2 py-0.5 rounded-md">System Key</span>
+                                    </div>
+                                    <div className="flex items-center justify-between pt-1.5 border-t border-blue-100/70 dark:border-blue-900/50 text-amber-900 dark:text-amber-200">
                                         <span>Default Password: <strong className="font-mono text-amber-600 dark:text-amber-400 font-bold">{formData.password ? formData.password : previewDefaultPassword()}</strong></span>
-                                        <span className="text-[10px] bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-md font-medium">Name + Class + Roll</span>
+                                        <span className="text-[10px] bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-md font-medium">Name + Class + Roll + Sec</span>
                                     </div>
                                 </div>
                             )}
@@ -478,6 +548,89 @@ const StudentManagement = () => {
                                 </button>
                             </div>
 
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Promote Student Modal */}
+            {promotingStudent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+                    <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 w-full max-w-md overflow-hidden my-8">
+                        <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center space-x-2">
+                                <TrendingUp className="w-5 h-5 text-emerald-600" />
+                                <span>Promote Student to Next Class</span>
+                            </h3>
+                            <button onClick={() => setPromotingStudent(null)} className="p-1 text-gray-400 hover:text-gray-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handlePromoteStudent} className="p-6 space-y-4">
+                            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 space-y-1 text-xs text-emerald-900 dark:text-emerald-200">
+                                <div className="font-bold text-sm text-emerald-900 dark:text-emerald-100">{promotingStudent.name}</div>
+                                <div>User ID: <span className="font-mono font-bold">{promotingStudent.user_id}</span></div>
+                                <div>Current Class: <span className="font-bold">{promotingStudent.class_name} - Section {promotingStudent.section_name} (Roll #{promotingStudent.roll_number})</span></div>
+                                <div>Admission ID: <span className="font-mono font-bold">{promotingStudent.admission_number}</span></div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Target Class *</label>
+                                    <select
+                                        value={promoteData.target_class_name}
+                                        onChange={(e) => setPromoteData({ ...promoteData, target_class_name: e.target.value })}
+                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none"
+                                    >
+                                        {Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`).map((c) => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                        <option value="Graduated">Graduated / Passed Out</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Target Section *</label>
+                                    <select
+                                        value={promoteData.target_section_name}
+                                        onChange={(e) => setPromoteData({ ...promoteData, target_section_name: e.target.value })}
+                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none"
+                                    >
+                                        {['A', 'B', 'C', 'D'].map((s) => (
+                                            <option key={s} value={s}>Section {s}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">New Roll Number in Promoted Class *</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        value={promoteData.new_roll_number}
+                                        onChange={(e) => setPromoteData({ ...promoteData, new_roll_number: e.target.value })}
+                                        placeholder="e.g. 49"
+                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                <button
+                                    type="button"
+                                    onClick={() => setPromotingStudent(null)}
+                                    className="px-4 py-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-lg shadow-emerald-600/20 transition"
+                                >
+                                    Confirm Student Promotion
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>

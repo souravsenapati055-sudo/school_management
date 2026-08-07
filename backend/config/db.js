@@ -606,7 +606,7 @@ async function seed100StudentsIfMissing() {
             const motherName = `Sunita ${ln}`;
             const mobileNumber = `98${String(10000000 + i).padStart(8, '0')}`;
             const email = `${cleanFn.toLowerCase()}${i}@student.edu`;
-            const admissionNo = `ADM2026${String(i).padStart(4, '0')}`;
+            const admissionNo = `${cleanFn}2026${rollNumber}${sectionName}`;
             const dob = `20${String(15 - Math.min(12, parseInt(classNum))).padStart(2, '0')}-05-15`;
 
             await query(`INSERT INTO students (

@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/db');
-const { generateStudentId, generateTeacherId, generateStudentDefaultPassword } = require('../utils/idGenerator');
+const { generateStudentId, generateTeacherId, generateStudentDefaultPassword, generateStudentAdmissionNumber } = require('../utils/idGenerator');
 
 // 1. Dashboard Statistics & Analytics
 const getDashboardStats = async (req, res) => {
@@ -71,7 +71,26 @@ const createStudent = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Name, Roll Number, Class, and Section are required' });
         }
 
-        // Auto-generate User ID e.g. SOURAV849 with collision protection
+        // 1. Check unique roll number within same class & section
+        const [existingRoll] = await query(
+            'SELECT user_id, name FROM students WHERE class_name = ? AND section_name = ? AND roll_number = ?',
+            [class_name, section_name, roll_number]
+        );
+        if (existingRoll.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Roll Number #${roll_number} is already assigned to '${existingRoll[0].name}' in ${class_name} - Section ${section_name}. Roll numbers must be unique per section.`
+            });
+        }
+
+        // 2. Auto-generate Admission Number e.g. SOURAV202649A if not specified
+        const currentYear = new Date().getFullYear();
+        const autoAdmissionNo = generateStudentAdmissionNumber(name, roll_number, section_name, currentYear);
+        const finalAdmissionNo = (admission_number && String(admission_number).trim() !== '') 
+            ? String(admission_number).trim().toUpperCase() 
+            : autoAdmissionNo;
+
+        // Auto-generate User ID e.g. SOURAV949 with collision protection
         const generatedUserId = await generateStudentId(name, class_name, roll_number);
 
         // Default password format: Name + Class Digit + Roll Number + Section (e.g. SOURAV949A)
@@ -93,13 +112,14 @@ const createStudent = async (req, res) => {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
             generatedUserId, name, roll_number, class_name, section_name, age || null, gender || null,
             father_name || null, mother_name || null, address || null, mobile_number || null,
-            email || null, admission_number || `ADM${Date.now()}`, dob || null
+            email || null, finalAdmissionNo, dob || null
         ]);
 
         return res.status(201).json({
             success: true,
-            message: `Student created! User ID: ${generatedUserId} | Default Password: ${plainPassword}`,
+            message: `Student created! Admission ID: ${finalAdmissionNo} | User ID: ${generatedUserId} | Password: ${plainPassword}`,
             generatedUserId,
+            admissionNumber: finalAdmissionNo,
             defaultPassword: plainPassword
         });
     } catch (err) {
@@ -154,6 +174,20 @@ const updateStudent = async (req, res) => {
             father_name, mother_name, address, mobile_number, email, admission_number, dob
         } = req.body;
 
+        // Check unique roll number within same class & section for another student
+        if (roll_number && class_name && section_name) {
+            const [existingRoll] = await query(
+                'SELECT user_id, name FROM students WHERE class_name = ? AND section_name = ? AND roll_number = ? AND LOWER(user_id) != LOWER(?)',
+                [class_name, section_name, roll_number, userId]
+            );
+            if (existingRoll.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Roll Number #${roll_number} is already assigned to '${existingRoll[0].name}' in ${class_name} - Section ${section_name}.`
+                });
+            }
+        }
+
         const cleanAge = (age !== undefined && age !== null && age !== '' && !isNaN(age)) ? parseInt(age) : null;
         const cleanDob = (dob && String(dob).trim() !== '') ? String(dob).trim() : null;
         const cleanEmail = (email && String(email).trim() !== '') ? String(email).trim() : null;
@@ -163,7 +197,7 @@ const updateStudent = async (req, res) => {
             name = ?, roll_number = ?, class_name = ?, section_name = ?, age = ?, gender = ?,
             father_name = ?, mother_name = ?, address = ?, mobile_number = ?, email = ?,
             admission_number = ?, dob = ?
-            WHERE user_id = ?`, [
+            WHERE LOWER(user_id) = LOWER(?)`, [
             name, roll_number, class_name, section_name, cleanAge, gender || null,
             father_name || null, mother_name || null, address || null, cleanMobile, cleanEmail,
             admission_number || null, cleanDob,
@@ -177,10 +211,65 @@ const updateStudent = async (req, res) => {
     }
 };
 
+const promoteStudent = async (req, res) => {
+    try {
+        const { user_id, target_class_name, target_section_name, new_roll_number } = req.body;
+
+        if (!user_id || !target_class_name || !target_section_name || !new_roll_number) {
+            return res.status(400).json({ success: false, message: 'Student ID, Target Class, Section, and New Roll Number are required' });
+        }
+
+        const [students] = await query('SELECT * FROM students WHERE LOWER(user_id) = LOWER(?)', [user_id]);
+        if (students.length === 0) {
+            return res.status(404).json({ success: false, message: 'Student profile not found' });
+        }
+        const student = students[0];
+
+        // Check if Roll Number is already taken in target class & section
+        const [existingRoll] = await query(
+            'SELECT user_id, name FROM students WHERE class_name = ? AND section_name = ? AND roll_number = ? AND LOWER(user_id) != LOWER(?)',
+            [target_class_name, target_section_name, new_roll_number, user_id]
+        );
+        if (existingRoll.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Roll Number #${new_roll_number} is already taken by '${existingRoll[0].name}' in ${target_class_name} - Section ${target_section_name}`
+            });
+        }
+
+        // Generate updated admission number (SOURAV202649A)
+        const currentYear = new Date().getFullYear();
+        const updatedAdmissionNo = generateStudentAdmissionNumber(student.name, new_roll_number, target_section_name, currentYear);
+
+        await query(`
+            UPDATE students 
+            SET class_name = ?, section_name = ?, roll_number = ?, admission_number = ?
+            WHERE LOWER(user_id) = LOWER(?)
+        `, [target_class_name, target_section_name, new_roll_number, updatedAdmissionNo, user_id]);
+
+        return res.json({
+            success: true,
+            message: `Student '${student.name}' promoted to ${target_class_name} - Section ${target_section_name} (Roll #${new_roll_number}) successfully!`,
+            promotedStudent: {
+                user_id,
+                name: student.name,
+                class_name: target_class_name,
+                section_name: target_section_name,
+                roll_number: new_roll_number,
+                admission_number: updatedAdmissionNo
+            }
+        });
+    } catch (err) {
+        console.error('Officer promoteStudent error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
+    }
+};
+
 const deleteStudent = async (req, res) => {
     try {
         const { userId } = req.params;
-        await query('DELETE FROM users WHERE user_id = ?', [userId]);
+        await query('DELETE FROM users WHERE LOWER(user_id) = LOWER(?)', [userId]);
+        await query('DELETE FROM students WHERE LOWER(user_id) = LOWER(?)', [userId]);
         return res.json({ success: true, message: 'Student deleted successfully' });
     } catch (err) {
         console.error('Officer deleteStudent error:', err);
@@ -765,6 +854,7 @@ module.exports = {
     createStudent,
     getStudents,
     updateStudent,
+    promoteStudent,
     deleteStudent,
     createTeacher,
     getTeachers,

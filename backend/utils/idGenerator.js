@@ -63,9 +63,19 @@ function generateStudentDefaultPassword(name, className, rollNumber, sectionName
     return `${firstName}${classNum}${roll}${section}`;
 }
 
+// Generate Student Admission ID: UPPERCASE(FirstName + Year + RollNumber + Section)
+// Example: Sourav, Roll 49, Section A, Year 2026 -> SOURAV202649A
+function generateStudentAdmissionNumber(name, rollNumber, sectionName, year = 2026) {
+    const firstName = name ? name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase() : 'STUDENT';
+    const roll = rollNumber !== undefined && rollNumber !== null ? String(rollNumber).trim() : '1';
+    const section = sectionName ? String(sectionName).trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase() : 'A';
+    return `${firstName}${year}${roll}${section}`;
+}
+
 module.exports = {
     generateStudentId,
     generateTeacherId,
-    generateStudentDefaultPassword
+    generateStudentDefaultPassword,
+    generateStudentAdmissionNumber
 };
 
