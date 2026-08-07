@@ -572,6 +572,8 @@ async function seed100StudentsIfMissing() {
             try { await query('INSERT INTO exams (name, session) VALUES (?, ?)', [ex, '2025-2026']); } catch (e) {}
         }
 
+        const sectionRollTracker = {};
+
         for (let i = 1; i <= 100; i++) {
             const fn = firstNames[(i - 1) % firstNames.length];
             const ln = lastNames[(i - 1) % lastNames.length];
@@ -579,7 +581,10 @@ async function seed100StudentsIfMissing() {
             
             const className = classList[(i - 1) % classList.length];
             const sectionName = sectionList[(i - 1) % sectionList.length];
-            const rollNumber = Math.floor((i - 1) / (classList.length * sectionList.length)) + 1;
+            
+            const trackerKey = `${className}-${sectionName}`;
+            sectionRollTracker[trackerKey] = (sectionRollTracker[trackerKey] || 0) + 1;
+            const rollNumber = sectionRollTracker[trackerKey];
 
             const classNum = className.match(/\d+/) ? className.match(/\d+/)[0] : '1';
             const cleanFn = fn.replace(/[^a-zA-Z]/g, '').toUpperCase();
