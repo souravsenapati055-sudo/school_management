@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
     Plus, Search, UserPlus, Edit2, Trash2, X, 
-    CheckCircle2, GraduationCap, Filter, Eye, Mail 
+    CheckCircle2, GraduationCap, Filter, Eye, Mail, Printer 
 } from 'lucide-react';
 import API from '../../services/api';
 import Toast from '../../components/Toast';

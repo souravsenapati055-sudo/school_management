@@ -114,11 +114,11 @@ const getStudents = async (req, res) => {
         let sql = 'SELECT * FROM students WHERE 1=1';
         let params = [];
 
-        if (class_name) {
+        if (class_name && class_name !== 'All') {
             sql += ' AND class_name = ?';
             params.push(class_name);
         }
-        if (section_name) {
+        if (section_name && section_name !== 'All') {
             sql += ' AND section_name = ?';
             params.push(section_name);
         }
@@ -129,17 +129,20 @@ const getStudents = async (req, res) => {
         }
 
         sql += ' ORDER BY class_name ASC, section_name ASC, roll_number ASC';
-        const [students] = await query(sql, params);
+        const [rows] = await query(sql, params);
+        const studentsList = Array.isArray(rows) ? rows : [];
 
         // Attach calculated default initial password to each student object for display on dashboard
-        students.forEach(st => {
-            st.default_password = generateStudentDefaultPassword(st.name, st.class_name, st.roll_number, st.section_name);
+        studentsList.forEach(st => {
+            if (st) {
+                st.default_password = generateStudentDefaultPassword(st.name, st.class_name, st.roll_number, st.section_name);
+            }
         });
 
-        return res.json({ success: true, students });
+        return res.json({ success: true, students: studentsList });
     } catch (err) {
         console.error('Officer getStudents error:', err);
-        return res.status(500).json({ success: false, message: 'Internal server error' });
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
     }
 };
 
