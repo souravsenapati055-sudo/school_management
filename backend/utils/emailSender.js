@@ -1,32 +1,59 @@
 const nodemailer = require('nodemailer');
 
 /**
- * Create Nodemailer Transporter
- * Prioritizes Gmail App Password / SMTP config from environment variables.
- * Falls back gracefully in development mode if credentials are not configured.
+ * Create Nodemailer Transporters
+ * Forces IPv4 (family: 4) to prevent IPv6 DNS hangs on cloud platforms like Railway.
+ * Provides both Port 465 (SSL) and Port 587 (STARTTLS) strategies for maximum reliability.
  */
-function createTransporter() {
+function createTransporters() {
     const rawUser = process.env.GMAIL_USER ? process.env.GMAIL_USER.trim() : '';
     const rawPass = process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASS;
 
     if (rawUser && rawPass) {
         const cleanPass = rawPass.trim().replace(/\s+/g, '');
-        return nodemailer.createTransport({
+
+        // Strategy 1: Port 465 Direct SSL with forced IPv4
+        const primary = nodemailer.createTransport({
             host: 'smtp.gmail.com',
             port: 465,
-            secure: true, // Direct SSL on port 465 works reliably on cloud platforms like Railway
+            secure: true,
             auth: {
                 user: rawUser,
                 pass: cleanPass
             },
-            connectionTimeout: 15000,
-            greetingTimeout: 15000,
-            socketTimeout: 15000
+            family: 4, // Forces IPv4 to bypass Railway IPv6 connection timeouts
+            tls: {
+                rejectUnauthorized: false
+            },
+            connectionTimeout: 8000,
+            greetingTimeout: 8000,
+            socketTimeout: 8000
         });
+
+        // Strategy 2: Port 587 STARTTLS with forced IPv4 (Fallback)
+        const fallback = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false,
+            requireTLS: true,
+            auth: {
+                user: rawUser,
+                pass: cleanPass
+            },
+            family: 4, // Forces IPv4 to bypass Railway IPv6 connection timeouts
+            tls: {
+                rejectUnauthorized: false
+            },
+            connectionTimeout: 8000,
+            greetingTimeout: 8000,
+            socketTimeout: 8000
+        });
+
+        return { primary, fallback };
     }
 
     if (process.env.SMTP_HOST && process.env.SMTP_USER) {
-        return nodemailer.createTransport({
+        const custom = nodemailer.createTransport({
             host: process.env.SMTP_HOST.trim(),
             port: parseInt(process.env.SMTP_PORT || '587'),
             secure: process.env.SMTP_SECURE === 'true',
@@ -34,10 +61,15 @@ function createTransporter() {
                 user: process.env.SMTP_USER.trim(),
                 pass: (process.env.SMTP_PASS || '').trim()
             },
-            connectionTimeout: 15000,
-            greetingTimeout: 15000,
-            socketTimeout: 15000
+            family: 4,
+            tls: {
+                rejectUnauthorized: false
+            },
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+            socketTimeout: 10000
         });
+        return { primary: custom, fallback: null };
     }
 
     // Fallback mode for local development testing
@@ -48,7 +80,7 @@ function createTransporter() {
  * Send OTP Email to student, teacher, or officer
  */
 const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
-    const transporter = createTransporter();
+    const transporters = createTransporters();
 
     const subject = `[Majuria Baispatra S.M High School] Password Reset OTP Code: ${otp}`;
     const htmlContent = `
@@ -106,7 +138,7 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
     console.log(`🔢 OTP Code: ${otp}`);
     console.log(`==================================================\n`);
 
-    if (!transporter) {
+    if (!transporters) {
         console.warn(`[EmailService Warning]: Gmail / SMTP credentials not configured in .env. Falling back to console OTP display.`);
         return {
             success: true,
@@ -116,24 +148,17 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
         };
     }
 
+    const mailOptions = {
+        from: `"Majuria Baispatra S.M High School" <${process.env.GMAIL_USER || process.env.SMTP_USER || 'no-reply@majpuriabaispatra.edu'}>`,
+        to: toEmail,
+        subject: subject,
+        html: htmlContent
+    };
+
+    // Attempt 1: Primary Transporter (Port 465 SSL, IPv4)
     try {
-        const mailOptions = {
-            from: `"Majuria Baispatra S.M High School" <${process.env.GMAIL_USER || process.env.SMTP_USER || 'no-reply@majpuriabaispatra.edu'}>`,
-            to: toEmail,
-            subject: subject,
-            html: htmlContent
-        };
-
-        // 15 second timeout race promise for cloud networks
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('SMTP connection timed out after 15 seconds')), 15000);
-        });
-
-        const info = await Promise.race([
-            transporter.sendMail(mailOptions),
-            timeoutPromise
-        ]);
-
+        console.log(`[EmailService] Attempting to send OTP via Primary SMTP (Port 465 SSL, IPv4)...`);
+        const info = await transporters.primary.sendMail(mailOptions);
         console.log(`[EmailService Success] OTP email sent successfully to ${toEmail}. Message ID: ${info.messageId}`);
         return {
             success: true,
@@ -141,12 +166,36 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
             messageId: info.messageId,
             devOtp: otp
         };
-    } catch (err) {
-        console.error('[EmailService Error] Failed to send email via SMTP/Gmail:', err.message);
+    } catch (primaryErr) {
+        console.warn(`[EmailService Warning] Primary SMTP (Port 465) failed: ${primaryErr.message}. Trying Fallback SMTP...`);
+
+        // Attempt 2: Fallback Transporter (Port 587 STARTTLS, IPv4)
+        if (transporters.fallback) {
+            try {
+                console.log(`[EmailService] Attempting to send OTP via Fallback SMTP (Port 587 STARTTLS, IPv4)...`);
+                const info = await transporters.fallback.sendMail(mailOptions);
+                console.log(`[EmailService Success] OTP email sent successfully to ${toEmail} via fallback. Message ID: ${info.messageId}`);
+                return {
+                    success: true,
+                    sent: true,
+                    messageId: info.messageId,
+                    devOtp: otp
+                };
+            } catch (fallbackErr) {
+                console.error(`[EmailService Error] Both Primary and Fallback SMTP failed: ${fallbackErr.message}`);
+                return {
+                    success: true,
+                    sent: false,
+                    message: `Failed to deliver email to ${toEmail}: ${fallbackErr.message}. OTP logged to server console.`,
+                    devOtp: otp
+                };
+            }
+        }
+
         return {
             success: true,
             sent: false,
-            message: `Failed to deliver email to ${toEmail}: ${err.message}. OTP logged to server console.`,
+            message: `Failed to deliver email to ${toEmail}: ${primaryErr.message}. OTP logged to server console.`,
             devOtp: otp
         };
     }
