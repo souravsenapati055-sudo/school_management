@@ -14,6 +14,8 @@ const ClassSubjectManagement = () => {
     
     const [newClassName, setNewClassName] = useState('');
     const [newSectionName, setNewSectionName] = useState('');
+    const [newSubjectName, setNewSubjectName] = useState('');
+    const [newSubjectCode, setNewSubjectCode] = useState('');
     const [toast, setToast] = useState(null);
 
     const fetchData = async () => {
@@ -113,6 +115,25 @@ const ClassSubjectManagement = () => {
         }
     };
 
+    const handleAddSubject = async (e) => {
+        e.preventDefault();
+        if (!newSubjectName.trim()) return;
+        try {
+            const res = await API.post('/officer/subjects', {
+                name: newSubjectName.trim(),
+                code: newSubjectCode.trim()
+            });
+            if (res.data.success) {
+                setToast({ type: 'success', message: `New Subject '${newSubjectName.trim()}' created!` });
+                setNewSubjectName('');
+                setNewSubjectCode('');
+                fetchData();
+            }
+        } catch (err) {
+            setToast({ type: 'error', message: err.response?.data?.message || 'Failed to add subject' });
+        }
+    };
+
     return (
         <div className="space-y-6">
             
@@ -190,6 +211,35 @@ const ClassSubjectManagement = () => {
                             <button type="submit" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm shadow">
                                 Add
                             </button>
+                        </form>
+                    </div>
+
+                    {/* Add Custom Master Subject Form */}
+                    <div className="p-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm space-y-4">
+                        <h3 className="font-bold text-gray-900 dark:text-white text-sm flex items-center space-x-2">
+                            <Plus className="w-4 h-4 text-purple-600" />
+                            <span>Add New Subject (Not Available)</span>
+                        </h3>
+                        <form onSubmit={handleAddSubject} className="space-y-3">
+                            <input
+                                type="text"
+                                placeholder="Subject Name (e.g. Sanskrit, EVS)"
+                                value={newSubjectName}
+                                onChange={(e) => setNewSubjectName(e.target.value)}
+                                className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none"
+                            />
+                            <div className="flex space-x-2">
+                                <input
+                                    type="text"
+                                    placeholder="Code (e.g. SANS)"
+                                    value={newSubjectCode}
+                                    onChange={(e) => setNewSubjectCode(e.target.value)}
+                                    className="flex-1 px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none uppercase"
+                                />
+                                <button type="submit" className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-sm shadow">
+                                    Add Subject
+                                </button>
+                            </div>
                         </form>
                     </div>
 

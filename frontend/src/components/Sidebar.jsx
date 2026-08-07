@@ -43,7 +43,7 @@ const Sidebar = () => {
     const items = navItems[user.role] || [];
 
     return (
-        <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700/60 min-h-[calc(100vh-65px)] p-4 flex flex-col justify-between shrink-0">
+        <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700/60 min-h-[calc(100vh-65px)] p-4 flex flex-col justify-between shrink-0 print:hidden">
             <div className="space-y-6">
                 
                 {/* Role Greeting Header */}

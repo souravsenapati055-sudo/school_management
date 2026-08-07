@@ -29,6 +29,7 @@ router.post('/sections', officerController.addSection);
 
 // Subject management
 router.get('/subjects', officerController.getSubjects);
+router.post('/subjects', officerController.addSubject);
 router.post('/class-subjects', officerController.assignSubjectsToClass);
 
 // Exam management & Toppers

@@ -52,3 +52,22 @@
 .animate-marquee:hover {
   animation-play-state: paused;
 }
+
+/* Global Print Styles - Hides left sidebar, top header, and website navigation */
+@media print {
+  header, aside, nav, .print\:hidden {
+    display: none !important;
+  }
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}

@@ -32,11 +32,11 @@ import StudentDashboard from './pages/student/StudentDashboard';
 // Dashboard Shell Layout
 const DashboardLayout = () => {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col font-sans print:bg-white print:text-black print:min-h-0 print:p-0">
       <Navbar />
-      <div className="flex flex-1">
+      <div className="flex flex-1 print:block print:p-0">
         <Sidebar />
-        <main className="flex-1 p-4 sm:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-4 sm:p-8 max-w-7xl mx-auto w-full print:p-0 print:m-0 print:max-w-none print:w-full">
           <Outlet />
         </main>
       </div>

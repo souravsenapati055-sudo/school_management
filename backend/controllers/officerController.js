@@ -304,6 +304,33 @@ const getSubjects = async (req, res) => {
     }
 };
 
+const addSubject = async (req, res) => {
+    try {
+        const { name, code } = req.body;
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ success: false, message: 'Subject name is required' });
+        }
+        const cleanName = name.trim();
+        const cleanCode = (code && code.trim() !== '') ? code.trim().toUpperCase() : cleanName.substring(0, 4).toUpperCase();
+
+        const [existing] = await query('SELECT * FROM subjects WHERE LOWER(name) = LOWER(?)', [cleanName]);
+        if (existing.length > 0) {
+            return res.status(400).json({ success: false, message: `Subject '${cleanName}' already exists` });
+        }
+
+        await query('INSERT INTO subjects (name, code) VALUES (?, ?)', [cleanName, cleanCode]);
+
+        return res.status(201).json({
+            success: true,
+            message: `Subject '${cleanName}' created successfully!`,
+            subject: { name: cleanName, code: cleanCode }
+        });
+    } catch (err) {
+        console.error('Officer addSubject error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
+    }
+};
+
 const assignSubjectsToClass = async (req, res) => {
     try {
         const { class_name, subjects } = req.body; // subjects = Array of subject names
@@ -744,6 +771,7 @@ module.exports = {
     addClass,
     addSection,
     getSubjects,
+    addSubject,
     assignSubjectsToClass,
     createExam,
     getExams,

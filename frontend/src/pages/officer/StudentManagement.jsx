@@ -126,24 +126,34 @@ const StudentManagement = () => {
         <div className="space-y-6">
             
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Student Management</h1>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Create, inspect, update, and manage student enrollments across all classes.
                     </p>
                 </div>
-                <button
-                    onClick={() => { resetForm(); setIsCreateModalOpen(true); }}
-                    className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm shadow-md shadow-brand-500/20 transition"
-                >
-                    <UserPlus className="w-4 h-4" />
-                    <span>Create New Student</span>
-                </button>
+                <div className="flex items-center space-x-3">
+                    <button
+                        onClick={() => window.print()}
+                        className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm shadow-md transition"
+                        title="Print Student Directory Roster"
+                    >
+                        <Printer className="w-4 h-4 text-amber-400" />
+                        <span>Print Student Directory</span>
+                    </button>
+                    <button
+                        onClick={() => { resetForm(); setIsCreateModalOpen(true); }}
+                        className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm shadow-md shadow-brand-500/20 transition"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Create New Student</span>
+                    </button>
+                </div>
             </div>
 
-            {/* Filter & Search Bar */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+            {/* Filter & Search Bar (Hidden during print) */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 print:hidden">
                 <div className="flex items-center space-x-3 w-full md:w-auto">
                     <div className="relative flex-1 md:w-64">
                         <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
@@ -184,8 +194,68 @@ const StudentManagement = () => {
                 </div>
             </div>
 
-            {/* Students Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm overflow-hidden">
+            {/* Print Only Official Document Roster (Visible ONLY during window.print()) */}
+            <div className="hidden print:block p-4">
+                <div className="text-center border-b-2 border-gray-900 pb-4 mb-4">
+                    <h1 className="text-2xl font-black uppercase text-gray-900 tracking-wider">
+                        MAJURIA BAISPATRA S.M HIGH SCHOOL
+                    </h1>
+                    <p className="text-xs text-gray-700 font-semibold mt-1">
+                        OFFICIAL STUDENT ENROLLMENT & CONTACT DIRECTORY ROSTER
+                    </p>
+                    <div className="flex justify-between items-center text-xs text-gray-800 font-mono font-bold mt-4 pt-2 border-t border-gray-300">
+                        <span>CLASS: {filterClass || 'ALL CLASSES'}</span>
+                        <span>SECTION: {filterSection ? `SECTION ${filterSection}` : 'ALL SECTIONS'}</span>
+                        <span>TOTAL STUDENTS: {students.length}</span>
+                        <span>DATE: {new Date().toLocaleDateString()}</span>
+                    </div>
+                </div>
+
+                <table className="w-full text-left text-xs border-collapse border border-gray-900">
+                    <thead>
+                        <tr className="bg-gray-200 border-b-2 border-gray-900 text-gray-900 uppercase font-black">
+                            <th className="p-2 border border-gray-900 text-center">#</th>
+                            <th className="p-2 border border-gray-900">User ID</th>
+                            <th className="p-2 border border-gray-900">Student Name</th>
+                            <th className="p-2 border border-gray-900">Class & Sec</th>
+                            <th className="p-2 border border-gray-900">Roll No</th>
+                            <th className="p-2 border border-gray-900">Father's Name</th>
+                            <th className="p-2 border border-gray-900">Mobile Number</th>
+                            <th className="p-2 border border-gray-900">Assigned Email / Gmail</th>
+                            <th className="p-2 border border-gray-900">Admission No</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {students.map((st, index) => (
+                            <tr key={st.user_id} className="border-b border-gray-400 font-sans">
+                                <td className="p-2 border border-gray-400 text-center font-mono font-bold">{index + 1}</td>
+                                <td className="p-2 border border-gray-400 font-mono font-bold text-gray-900">{st.user_id}</td>
+                                <td className="p-2 border border-gray-400 font-bold text-gray-900">{st.name}</td>
+                                <td className="p-2 border border-gray-400 font-semibold">{st.class_name} - {st.section_name}</td>
+                                <td className="p-2 border border-gray-400 font-mono font-bold">#{st.roll_number}</td>
+                                <td className="p-2 border border-gray-400">{st.father_name || 'N/A'}</td>
+                                <td className="p-2 border border-gray-400 font-mono font-bold">{st.mobile_number || 'N/A'}</td>
+                                <td className="p-2 border border-gray-400 text-gray-800">{st.email || 'N/A'}</td>
+                                <td className="p-2 border border-gray-400 font-mono">{st.admission_number || 'N/A'}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+
+                <div className="flex justify-between items-end mt-16 pt-8 border-t-2 border-gray-900">
+                    <div className="text-center font-bold text-xs text-gray-900">
+                        <div className="w-52 border-b border-gray-900 mb-2"></div>
+                        <span>Office Administrator Signature</span>
+                    </div>
+                    <div className="text-center font-bold text-xs text-gray-900">
+                        <div className="w-52 border-b border-gray-900 mb-2"></div>
+                        <span>Headmaster / Principal Signature</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Students Table (Hidden during print) */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-sm overflow-hidden print:hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 dark:bg-gray-700/40 text-gray-500 dark:text-gray-400 font-semibold text-xs uppercase tracking-wider">
