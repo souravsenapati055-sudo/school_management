@@ -89,15 +89,20 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Start Server immediately so health checks pass on Railway
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`===================================================`);
-    console.log(`School Management API Server running on port ${PORT}`);
-    console.log(`Health Check: http://localhost:${PORT}/api/health`);
-    console.log(`===================================================`);
-    
-    // Initialize Database after server is running
-    initDB().catch(err => {
-        console.error('Database initialization warning:', err.message);
+// Export app for serverless environments (Vercel)
+module.exports = app;
+
+// Start Server immediately when run as main module (Railway / Local Node process)
+if (require.main === module) {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`===================================================`);
+        console.log(`School Management API Server running on port ${PORT}`);
+        console.log(`Health Check: http://localhost:${PORT}/api/health`);
+        console.log(`===================================================`);
+        
+        // Initialize Database after server is running
+        initDB().catch(err => {
+            console.error('Database initialization warning:', err.message);
+        });
     });
-});
+}
