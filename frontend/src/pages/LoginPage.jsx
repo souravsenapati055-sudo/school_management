@@ -41,8 +41,8 @@ const LoginPage = () => {
             setUserId('RAHULT01');
             setPassword('RAHULT01');
         } else {
-            setUserId('SOURAV849');
-            setPassword('SOURAV849');
+            setUserId('SOURAV20261A');
+            setPassword('SOURAV11A');
         }
     }, [selectedRole]);
 
@@ -237,7 +237,7 @@ const LoginPage = () => {
                                 required
                                 value={userId}
                                 onChange={(e) => setUserId(e.target.value)}
-                                placeholder="e.g. SOURAV849"
+                                placeholder="e.g. SOURAV20261A"
                                 className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-sm uppercase tracking-wide"
                             />
                         </div>
@@ -251,9 +251,9 @@ const LoginPage = () => {
                             <button
                                 type="button"
                                 onClick={openForgotModal}
-                                className="text-xs text-blue-400 hover:text-blue-300 font-medium transition flex items-center space-x-1"
+                                className="text-xs text-blue-400 hover:text-blue-300 transition flex items-center space-x-1 font-medium"
                             >
-                                <KeyRound className="w-3 h-3" />
+                                <KeyRound className="w-3.5 h-3.5" />
                                 <span>Forgot Password?</span>
                             </button>
                         </div>
@@ -265,7 +265,7 @@ const LoginPage = () => {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••"
-                                className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 text-sm"
+                                className="w-full pl-11 pr-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm font-mono transition"
                             />
                         </div>
                     </div>
@@ -286,9 +286,9 @@ const LoginPage = () => {
                         <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                         <span>Demo Account Seed Credentials:</span>
                     </div>
-                    <div>• Officer: <code className="text-purple-300 font-mono">OFFICER01</code></div>
-                    <div>• Teacher: <code className="text-emerald-300 font-mono">RAHULT01</code></div>
-                    <div>• Student: <code className="text-blue-300 font-mono">SOURAV849</code></div>
+                    <div>• Officer: <code className="text-purple-300 font-mono">OFFICER01</code> (Pass: <code className="text-amber-300 font-mono">OFFICER01</code>)</div>
+                    <div>• Teacher: <code className="text-emerald-300 font-mono">RAHULT01</code> (Pass: <code className="text-amber-300 font-mono">RAHULT01</code>)</div>
+                    <div>• Student: <code className="text-blue-300 font-mono">SOURAV20261A</code> (Pass: <code className="text-amber-300 font-mono">SOURAV11A</code>)</div>
                 </div>
 
                 <div className="text-center pt-2">
