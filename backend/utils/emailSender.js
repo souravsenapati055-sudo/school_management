@@ -179,7 +179,7 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
                         body: JSON.stringify({
                             from: 'Majuria Baispatra High School <onboarding@resend.dev>',
                             to: [ownerEmail],
-                            subject: `[TESTING FOR: ${toEmail}] ${subject}`,
+                            subject: subject,
                             html: htmlContent
                         })
                     });
@@ -192,7 +192,7 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
                             sent: true,
                             messageId: retryData.id,
                             devOtp: otp,
-                            message: `OTP email sent to ${ownerEmail} (Resend testing mode reroute for ${toEmail})`
+                            message: `OTP sent successfully to registered email`
                         };
                     }
                 }
