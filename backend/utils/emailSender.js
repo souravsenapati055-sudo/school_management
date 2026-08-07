@@ -138,6 +138,70 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
     console.log(`🔢 OTP Code: ${otp}`);
     console.log(`==================================================\n`);
 
+    // Priority 0: Resend API (HTTPS Port 443 - Never blocked on Railway)
+    if (process.env.RESEND_API_KEY) {
+        try {
+            console.log(`[EmailService] Attempting to send OTP via Resend HTTPS API...`);
+            const resendRes = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    from: 'Majuria Baispatra High School <onboarding@resend.dev>',
+                    to: [toEmail],
+                    subject: subject,
+                    html: htmlContent
+                })
+            });
+            const data = await resendRes.json();
+            if (resendRes.ok) {
+                console.log(`[EmailService Success] Resend email sent successfully! ID: ${data.id}`);
+                return { success: true, sent: true, messageId: data.id, devOtp: otp };
+            }
+            console.warn(`[EmailService Warning] Resend API error: ${JSON.stringify(data)}`);
+            if (data && data.message) {
+                return {
+                    success: true,
+                    sent: false,
+                    message: `Resend Notice: ${data.message}`,
+                    devOtp: otp
+                };
+            }
+        } catch (rErr) {
+            console.error(`[EmailService Error] Resend API failed: ${rErr.message}`);
+        }
+    }
+
+    // Priority 0.5: Brevo API (HTTPS Port 443 - Never blocked on Railway)
+    if (process.env.BREVO_API_KEY) {
+        try {
+            console.log(`[EmailService] Attempting to send OTP via Brevo HTTPS API...`);
+            const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
+                method: 'POST',
+                headers: {
+                    'api-key': process.env.BREVO_API_KEY.trim(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sender: { name: 'Majuria Baispatra S.M High School', email: process.env.GMAIL_USER || 'no-reply@majpuriabaispatra.edu' },
+                    to: [{ email: toEmail }],
+                    subject: subject,
+                    htmlContent: htmlContent
+                })
+            });
+            const data = await brevoRes.json();
+            if (brevoRes.ok) {
+                console.log(`[EmailService Success] Brevo email sent successfully! MessageID: ${data.messageId}`);
+                return { success: true, sent: true, messageId: data.messageId, devOtp: otp };
+            }
+            console.warn(`[EmailService Warning] Brevo API error: ${JSON.stringify(data)}`);
+        } catch (bErr) {
+            console.error(`[EmailService Error] Brevo API failed: ${bErr.message}`);
+        }
+    }
+
     if (!transporters) {
         console.warn(`[EmailService Warning]: Gmail / SMTP credentials not configured in .env. Falling back to console OTP display.`);
         return {
@@ -186,7 +250,7 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
                 return {
                     success: true,
                     sent: false,
-                    message: `Failed to deliver email to ${toEmail}: ${fallbackErr.message}. OTP logged to server console.`,
+                    message: `Failed to deliver email to ${toEmail}: Railway network blocks outbound SMTP (ports 465/587). Add a RESEND_API_KEY or BREVO_API_KEY variable in Railway for HTTPS delivery. OTP logged to server console.`,
                     devOtp: otp
                 };
             }
