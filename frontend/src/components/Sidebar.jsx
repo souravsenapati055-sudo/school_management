@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { 
     LayoutDashboard, Users, UserCheck, BookOpen, 
     Calendar, Bell, FileText, CheckSquare, KeyRound, 
-    GraduationCap, Award 
+    GraduationCap, Award, Trophy, BarChart3
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -14,6 +14,7 @@ const Sidebar = () => {
     const navItems = {
         Officer: [
             { label: 'Dashboard', path: '/officer/dashboard', icon: LayoutDashboard },
+            { label: 'Topper Leaderboard', path: '/officer/toppers', icon: Trophy },
             { label: 'Student Management', path: '/officer/students', icon: GraduationCap },
             { label: 'Teacher Management', path: '/officer/teachers', icon: Users },
             { label: 'Classes & Subjects', path: '/officer/class-subjects', icon: BookOpen },
@@ -29,8 +30,8 @@ const Sidebar = () => {
             { label: 'Change Password', path: '/change-password', icon: KeyRound },
         ],
         Student: [
-            { label: 'My Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
-            { label: 'Report Cards & Marks', path: '/student/dashboard?tab=marks', icon: Award },
+            { label: 'PowerBI Dashboard', path: '/student/dashboard?tab=powerbi', icon: BarChart3 },
+            { label: 'Report Cards & PDF', path: '/student/dashboard?tab=marks', icon: Award },
             { label: 'My Attendance History', path: '/student/dashboard?tab=attendance', icon: CheckSquare },
             { label: 'Homework & E-Notes', path: '/student/dashboard?tab=homework', icon: FileText },
             { label: 'Notice Board', path: '/student/dashboard?tab=notices', icon: Bell },

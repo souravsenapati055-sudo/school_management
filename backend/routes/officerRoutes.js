@@ -31,9 +31,12 @@ router.post('/sections', officerController.addSection);
 router.get('/subjects', officerController.getSubjects);
 router.post('/class-subjects', officerController.assignSubjectsToClass);
 
-// Exam management
+// Exam management & Toppers
 router.get('/exams', officerController.getExams);
 router.post('/exams', officerController.createExam);
+router.get('/toppers', officerController.getTopperStudents);
+router.get('/student-result-pdf', officerController.downloadStudentMarksheetPDFForOfficer);
+router.get('/analytics', officerController.getPowerBiAnalyticsForOfficer);
 
 // Global search
 router.get('/search', officerController.globalSearch);

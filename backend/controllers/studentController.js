@@ -62,10 +62,40 @@ const getStudentDashboard = async (req, res) => {
             r.subject_details = details;
         }
 
+        // Calculate Student Class Rank
+        const [classToppers] = await query(`
+            SELECT DISTINCT r.student_id, r.percentage, r.total_marks
+            FROM results r
+            JOIN students s ON LOWER(r.student_id) = LOWER(s.user_id)
+            WHERE LOWER(s.class_name) = LOWER(?) AND LOWER(s.section_name) = LOWER(?)
+            ORDER BY r.percentage DESC, r.total_marks DESC
+        `, [student.class_name || '', student.section_name || '']);
+
+        const studentRankIdx = classToppers.findIndex(ct => ct.student_id.toLowerCase() === studentId.toLowerCase());
+        const classRank = studentRankIdx !== -1 ? studentRankIdx + 1 : 1;
+        const totalClassStudents = classToppers.length > 0 ? classToppers.length : 1;
+
+        // Class Subject Averages for PowerBI Chart Comparison
+        const [subjectClassAverages] = await query(`
+            SELECT 
+                rd.subject_name,
+                ROUND(AVG(rd.marks_obtained), 1) as class_avg_marks,
+                ROUND(AVG(rd.max_marks), 0) as max_marks
+            FROM result_details rd
+            JOIN results r ON rd.result_id = r.id
+            JOIN students s ON LOWER(r.student_id) = LOWER(s.user_id)
+            WHERE LOWER(s.class_name) = LOWER(?) AND LOWER(s.section_name) = LOWER(?)
+            GROUP BY rd.subject_name
+        `, [student.class_name || '', student.section_name || '']);
+
         return res.json({
             success: true,
             dashboard: {
                 student,
+                rankInfo: {
+                    rank: classRank,
+                    totalStudents: totalClassStudents
+                },
                 attendance: {
                     overallPercentage: overallAttendancePercent,
                     totalDays,
@@ -74,7 +104,8 @@ const getStudentDashboard = async (req, res) => {
                 },
                 homework: homeworkList,
                 notices,
-                results
+                results,
+                subjectClassAverages
             }
         });
     } catch (err) {

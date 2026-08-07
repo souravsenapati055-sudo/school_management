@@ -18,6 +18,7 @@ import ClassSubjectManagement from './pages/officer/ClassSubjectManagement';
 import ExamManagement from './pages/officer/ExamManagement';
 import NoticeManagement from './pages/officer/NoticeManagement';
 import OfficerProfile from './pages/officer/OfficerProfile';
+import TopperLeaderboard from './pages/officer/TopperLeaderboard';
 
 // Teacher Pages
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
@@ -61,6 +62,7 @@ function App() {
           <Route element={<ProtectedRoute allowedRoles={['Officer']} />}>
             <Route element={<DashboardLayout />}>
               <Route path="/officer/dashboard" element={<OfficerDashboard />} />
+              <Route path="/officer/toppers" element={<TopperLeaderboard />} />
               <Route path="/officer/students" element={<StudentManagement />} />
               <Route path="/officer/teachers" element={<TeacherManagement />} />
               <Route path="/officer/class-subjects" element={<ClassSubjectManagement />} />

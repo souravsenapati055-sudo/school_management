@@ -52,7 +52,20 @@ async function generateTeacherId(name) {
     return `${prefix}${nextNum}`;
 }
 
+// Generate Student Default Password: UPPERCASE(FirstName + ClassNum + RollNumber + Section)
+// Example: Sourav, Class 9, Roll 49, Section A -> SOURAV949A
+function generateStudentDefaultPassword(name, className, rollNumber, sectionName) {
+    const firstName = name ? name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase() : '';
+    const classNum = parseClassNum(className);
+    const roll = rollNumber !== undefined && rollNumber !== null ? String(rollNumber).trim() : '';
+    const section = sectionName ? String(sectionName).trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase() : '';
+
+    return `${firstName}${classNum}${roll}${section}`;
+}
+
 module.exports = {
     generateStudentId,
-    generateTeacherId
+    generateTeacherId,
+    generateStudentDefaultPassword
 };
+

@@ -55,13 +55,15 @@ const StudentManagement = () => {
         return `${firstName}${classNum}${roll}`.toUpperCase();
     };
 
-    // Live auto-generated Default Password preview (Name + Class + Roll Number)
+    // Live auto-generated Default Password preview (Name + Class Digit + Roll Number + Section)
     const previewDefaultPassword = () => {
-        if (!formData.name.trim()) return 'SOURAVClass849';
+        if (!formData.name.trim()) return 'SOURAV949A';
         const firstName = formData.name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase();
-        const cleanClass = (formData.class_name || 'Class 8').replace(/\s+/g, '');
+        const classMatch = formData.class_name ? formData.class_name.match(/\d+/) : null;
+        const classNum = classMatch ? classMatch[0] : (formData.class_name || '').replace(/\s+/g, '').toUpperCase();
         const roll = formData.roll_number || '49';
-        return `${firstName}${cleanClass}${roll}`;
+        const section = (formData.section_name || 'A').trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        return `${firstName}${classNum}${roll}${section}`;
     };
 
     const handleSaveStudent = async (e) => {

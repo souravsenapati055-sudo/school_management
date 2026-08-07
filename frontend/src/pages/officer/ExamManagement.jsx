@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Plus, CheckCircle2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Calendar, Plus, CheckCircle2, Trophy } from 'lucide-react';
 import API from '../../services/api';
 import Toast from '../../components/Toast';
 
@@ -42,11 +43,21 @@ const ExamManagement = () => {
     return (
         <div className="space-y-6 max-w-4xl">
             
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Exam Schedule Management</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Create exam terms (Unit Tests, Half-Yearly, Annual) available for teacher marks uploading and marksheet PDF generation.
-                </p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Exam Schedule Management</h1>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Create exam terms (Unit Tests, Half-Yearly, Annual) available for teacher marks uploading and marksheet PDF generation.
+                    </p>
+                </div>
+
+                <Link
+                    to="/officer/toppers"
+                    className="flex items-center space-x-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-md transition shrink-0"
+                >
+                    <Trophy className="w-4 h-4" />
+                    <span>View Topper Leaderboard & Print</span>
+                </Link>
             </div>
 
             {/* Create Exam Form */}

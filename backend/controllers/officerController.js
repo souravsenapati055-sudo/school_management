@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/db');
-const { generateStudentId, generateTeacherId } = require('../utils/idGenerator');
+const { generateStudentId, generateTeacherId, generateStudentDefaultPassword } = require('../utils/idGenerator');
 
 // 1. Dashboard Statistics & Analytics
 const getDashboardStats = async (req, res) => {
@@ -74,10 +74,8 @@ const createStudent = async (req, res) => {
         // Auto-generate User ID e.g. SOURAV849 with collision protection
         const generatedUserId = await generateStudentId(name, class_name, roll_number);
 
-        // Default password format: Name + Class + Roll Number (e.g. SOURAVClass849)
-        const firstName = name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase();
-        const cleanClass = class_name.replace(/\s+/g, '');
-        const defaultPassword = `${firstName}${cleanClass}${roll_number}`;
+        // Default password format: Name + Class Digit + Roll Number + Section (e.g. SOURAV949A)
+        const defaultPassword = generateStudentDefaultPassword(name, class_name, roll_number, section_name);
 
         const plainPassword = password && password.trim() !== '' ? password.trim() : defaultPassword;
         const passwordHash = await bcrypt.hash(plainPassword, 10);
@@ -135,9 +133,7 @@ const getStudents = async (req, res) => {
 
         // Attach calculated default initial password to each student object for display on dashboard
         students.forEach(st => {
-            const firstName = st.name ? st.name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase() : '';
-            const cleanClass = st.class_name ? st.class_name.replace(/\s+/g, '') : '';
-            st.default_password = `${firstName}${cleanClass}${st.roll_number}`;
+            st.default_password = generateStudentDefaultPassword(st.name, st.class_name, st.roll_number, st.section_name);
         });
 
         return res.json({ success: true, students });
@@ -481,6 +477,259 @@ const updateOfficerProfile = async (req, res) => {
     }
 };
 
+// 6. TOPPER LEADERBOARD & PRINT FUNCTIONALITY
+const getTopperStudents = async (req, res) => {
+    try {
+        const { class_name, section_name, exam_name, search } = req.query;
+
+        let sql = `
+            SELECT 
+                r.id as result_id,
+                r.student_id,
+                r.exam_name,
+                r.total_marks,
+                r.percentage,
+                r.grade,
+                r.remarks,
+                s.name as student_name,
+                s.roll_number,
+                s.class_name,
+                s.section_name,
+                s.email,
+                s.admission_number,
+                s.mobile_number
+            FROM results r
+            JOIN students s ON LOWER(r.student_id) = LOWER(s.user_id)
+            WHERE 1=1
+        `;
+        let params = [];
+
+        if (class_name && class_name !== 'All') {
+            sql += ' AND s.class_name = ?';
+            params.push(class_name);
+        }
+        if (section_name && section_name !== 'All') {
+            sql += ' AND s.section_name = ?';
+            params.push(section_name);
+        }
+        if (exam_name && exam_name !== 'All') {
+            sql += ' AND LOWER(r.exam_name) = LOWER(?)';
+            params.push(exam_name);
+        }
+        if (search) {
+            sql += ' AND (s.name LIKE ? OR s.user_id LIKE ? OR CAST(s.roll_number AS CHAR) LIKE ?)';
+            const pattern = `%${search}%`;
+            params.push(pattern, pattern, pattern);
+        }
+
+        // Topper-wise sort: highest percentage & total_marks first, then lowest roll_number
+        sql += ' ORDER BY r.percentage DESC, r.total_marks DESC, s.roll_number ASC';
+
+        const [toppers] = await query(sql, params);
+
+        // Attach rank (1, 2, 3...) & subject_details to each student record
+        let rank = 1;
+        for (let st of toppers) {
+            st.rank = rank++;
+            const [details] = await query('SELECT subject_name, marks_obtained, max_marks FROM result_details WHERE result_id = ?', [st.result_id]);
+            st.subject_details = details || [];
+        }
+
+        // Overall statistics summary
+        const totalStudents = toppers.length;
+        let highestPercentage = totalStudents > 0 ? toppers[0].percentage : 0;
+        let lowestPercentage = totalStudents > 0 ? toppers[totalStudents - 1].percentage : 0;
+        let sumPercentage = toppers.reduce((acc, t) => acc + (parseFloat(t.percentage) || 0), 0);
+        let classAvgPercentage = totalStudents > 0 ? parseFloat((sumPercentage / totalStudents).toFixed(1)) : 0;
+        let passCount = toppers.filter(t => t.grade !== 'F' && (parseFloat(t.percentage) || 0) >= 33).length;
+        let failCount = totalStudents - passCount;
+
+        return res.json({
+            success: true,
+            toppers,
+            stats: {
+                totalStudents,
+                highestPercentage,
+                lowestPercentage,
+                classAvgPercentage,
+                passCount,
+                failCount
+            }
+        });
+    } catch (err) {
+        console.error('Officer getTopperStudents error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
+    }
+};
+
+// 7. DOWNLOAD SUBJECT-WISE RESULT PDF FOR OFFICER
+const downloadStudentMarksheetPDFForOfficer = async (req, res) => {
+    try {
+        const { user_id, exam_name } = req.query;
+        if (!user_id) {
+            return res.status(400).json({ success: false, message: 'User ID is required' });
+        }
+
+        // Fetch Student Profile
+        const [students] = await query('SELECT * FROM students WHERE LOWER(user_id) = LOWER(?)', [user_id]);
+        if (students.length === 0) {
+            return res.status(404).json({ success: false, message: 'Student profile not found' });
+        }
+        const student = students[0];
+
+        // Fetch Result Record
+        let sqlResult = 'SELECT * FROM results WHERE LOWER(student_id) = LOWER(?)';
+        let resultParams = [user_id];
+        if (exam_name && exam_name !== 'All') {
+            sqlResult += ' AND TRIM(LOWER(exam_name)) = TRIM(LOWER(?))';
+            resultParams.push(exam_name);
+        }
+        sqlResult += ' ORDER BY id DESC LIMIT 1';
+
+        const [results] = await query(sqlResult, resultParams);
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: `No result found for student: ${user_id}` });
+        }
+        const resultHeader = results[0];
+
+        // Fetch Subject Details
+        const [subjectMarks] = await query('SELECT subject_name, marks_obtained, max_marks FROM result_details WHERE result_id = ?', [
+            resultHeader.id
+        ]);
+
+        // Fetch Overall Attendance %
+        const [attSummary] = await query(`
+            SELECT 
+                COUNT(*) as total_days,
+                SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as present_days
+            FROM attendance_details
+            WHERE LOWER(student_id) = LOWER(?)
+        `, [user_id]);
+
+        const totalDays = attSummary[0]?.total_days || 0;
+        const presentDays = attSummary[0]?.present_days || 0;
+        const overallPercentage = totalDays > 0 ? parseFloat(((presentDays / totalDays) * 100).toFixed(1)) : 100.0;
+
+        const { generateMarksheetPDF } = require('../utils/pdfGenerator');
+        generateMarksheetPDF(student, resultHeader, subjectMarks, { overall_percentage: overallPercentage }, res);
+    } catch (err) {
+        console.error('downloadStudentMarksheetPDFForOfficer error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
+    }
+};
+
+// 8. POWERBI VISUAL ANALYTICS DATA FOR OFFICER
+const getPowerBiAnalyticsForOfficer = async (req, res) => {
+    try {
+        const { class_name, section_name, exam_name } = req.query;
+
+        let classFilter = (class_name && class_name !== 'All') ? ' AND s.class_name = ?' : '';
+        let secFilter = (section_name && section_name !== 'All') ? ' AND s.section_name = ?' : '';
+        let examFilter = (exam_name && exam_name !== 'All') ? ' AND LOWER(r.exam_name) = LOWER(?)' : '';
+
+        let params = [];
+        if (class_name && class_name !== 'All') params.push(class_name);
+        if (section_name && section_name !== 'All') params.push(section_name);
+        if (exam_name && exam_name !== 'All') params.push(exam_name);
+
+        // 1. Overall Class Performance Distribution
+        const [classDistribution] = await query(`
+            SELECT 
+                s.class_name,
+                COUNT(DISTINCT s.user_id) as total_students,
+                ROUND(AVG(r.percentage), 1) as avg_percentage,
+                MAX(r.percentage) as highest_percentage,
+                MIN(r.percentage) as lowest_percentage
+            FROM students s
+            LEFT JOIN results r ON LOWER(s.user_id) = LOWER(r.student_id)
+            WHERE 1=1 ${classFilter} ${secFilter} ${examFilter}
+            GROUP BY s.class_name
+            ORDER BY s.class_name ASC
+        `, params);
+
+        // 2. Section Performance Comparison
+        const [sectionDistribution] = await query(`
+            SELECT 
+                s.class_name,
+                s.section_name,
+                COUNT(DISTINCT s.user_id) as total_students,
+                ROUND(AVG(r.percentage), 1) as avg_percentage
+            FROM students s
+            LEFT JOIN results r ON LOWER(s.user_id) = LOWER(r.student_id)
+            WHERE 1=1 ${classFilter} ${secFilter} ${examFilter}
+            GROUP BY s.class_name, s.section_name
+            ORDER BY s.class_name ASC, s.section_name ASC
+        `, params);
+
+        // 3. Subject-wise Average Scores
+        const [subjectPerformance] = await query(`
+            SELECT 
+                rd.subject_name,
+                ROUND(AVG(rd.marks_obtained), 1) as avg_marks,
+                ROUND(AVG(rd.max_marks), 0) as avg_max_marks,
+                MAX(rd.marks_obtained) as highest_marks,
+                MIN(rd.marks_obtained) as lowest_marks
+            FROM result_details rd
+            JOIN results r ON rd.result_id = r.id
+            JOIN students s ON LOWER(r.student_id) = LOWER(s.user_id)
+            WHERE 1=1 ${classFilter} ${secFilter} ${examFilter}
+            GROUP BY rd.subject_name
+            ORDER BY rd.subject_name ASC
+        `, params);
+
+        // 4. Grade Breakdown (A+, A, B, C, F)
+        const [gradeDistribution] = await query(`
+            SELECT 
+                CASE 
+                    WHEN r.percentage >= 90 THEN 'A+ (90%+)'
+                    WHEN r.percentage >= 75 THEN 'A (75-89%)'
+                    WHEN r.percentage >= 60 THEN 'B (60-74%)'
+                    WHEN r.percentage >= 33 THEN 'C (33-59%)'
+                    ELSE 'F (Below 33%)'
+                END as grade_label,
+                COUNT(r.id) as student_count
+            FROM results r
+            JOIN students s ON LOWER(r.student_id) = LOWER(s.user_id)
+            WHERE 1=1 ${classFilter} ${secFilter} ${examFilter}
+            GROUP BY grade_label
+        `, params);
+
+        // 5. Top 5 Toppers & Bottom 5 Needing Support
+        const [topToppers] = await query(`
+            SELECT s.name, s.user_id, s.class_name, s.section_name, s.roll_number, r.total_marks, r.percentage, r.grade
+            FROM results r
+            JOIN students s ON LOWER(r.student_id) = LOWER(s.user_id)
+            WHERE 1=1 ${classFilter} ${secFilter} ${examFilter}
+            ORDER BY r.percentage DESC, r.total_marks DESC
+            LIMIT 5
+        `, params);
+
+        const [bottomStudents] = await query(`
+            SELECT s.name, s.user_id, s.class_name, s.section_name, s.roll_number, r.total_marks, r.percentage, r.grade
+            FROM results r
+            JOIN students s ON LOWER(r.student_id) = LOWER(s.user_id)
+            WHERE 1=1 ${classFilter} ${secFilter} ${examFilter}
+            ORDER BY r.percentage ASC, r.total_marks ASC
+            LIMIT 5
+        `, params);
+
+        return res.json({
+            success: true,
+            analytics: {
+                classDistribution,
+                sectionDistribution,
+                subjectPerformance,
+                gradeDistribution,
+                topToppers,
+                bottomStudents
+            }
+        });
+    } catch (err) {
+        console.error('Officer getPowerBiAnalyticsForOfficer error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
+    }
+};
+
 module.exports = {
     getDashboardStats,
     createStudent,
@@ -500,5 +749,9 @@ module.exports = {
     getExams,
     globalSearch,
     getOfficerProfile,
-    updateOfficerProfile
+    updateOfficerProfile,
+    getTopperStudents,
+    downloadStudentMarksheetPDFForOfficer,
+    getPowerBiAnalyticsForOfficer
 };
+
