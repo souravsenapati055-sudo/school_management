@@ -55,6 +55,15 @@ const StudentManagement = () => {
         return `${firstName}${classNum}${roll}`.toUpperCase();
     };
 
+    // Live auto-generated Default Password preview (Name + Class + Roll Number)
+    const previewDefaultPassword = () => {
+        if (!formData.name.trim()) return 'SOURAVClass849';
+        const firstName = formData.name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase();
+        const cleanClass = (formData.class_name || 'Class 8').replace(/\s+/g, '');
+        const roll = formData.roll_number || '49';
+        return `${firstName}${cleanClass}${roll}`;
+    };
+
     const handleSaveStudent = async (e) => {
         e.preventDefault();
         try {
@@ -180,6 +189,7 @@ const StudentManagement = () => {
                         <thead className="bg-gray-50 dark:bg-gray-700/40 text-gray-500 dark:text-gray-400 font-semibold text-xs uppercase tracking-wider">
                             <tr>
                                 <th className="p-4">User ID</th>
+                                <th className="p-4">Default Password</th>
                                 <th className="p-4">Student Name</th>
                                 <th className="p-4">Class & Sec</th>
                                 <th className="p-4">Roll No</th>
@@ -193,6 +203,11 @@ const StudentManagement = () => {
                                 <tr key={st.user_id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition">
                                     <td className="p-4 font-mono font-bold text-brand-600 dark:text-brand-400">
                                         {st.user_id}
+                                    </td>
+                                    <td className="p-4">
+                                        <span className="px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-mono text-xs font-bold border border-amber-200/60 dark:border-amber-800/40">
+                                            {st.default_password || st.user_id}
+                                        </span>
                                     </td>
                                     <td className="p-4 font-semibold text-gray-900 dark:text-white">
                                         {st.name}
@@ -238,7 +253,7 @@ const StudentManagement = () => {
                             ))}
                             {students.length === 0 && !loading && (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center text-gray-400 text-sm">
+                                    <td colSpan={8} className="p-8 text-center text-gray-400 text-sm">
                                         No student records match the filter criteria.
                                     </td>
                                 </tr>
@@ -265,9 +280,15 @@ const StudentManagement = () => {
                         <form onSubmit={handleSaveStudent} className="p-6 space-y-4">
                             
                             {!editingStudent && (
-                                <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/60 flex items-center justify-between text-xs text-blue-900 dark:text-blue-200">
-                                    <span>Generated User ID Rule: <strong className="font-mono">{previewUserId()}</strong></span>
-                                    <span className="text-[10px] bg-blue-200 dark:bg-blue-800 px-2 py-0.5 rounded-md">Auto UpperCase & Disambiguated</span>
+                                <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/60 space-y-1.5 text-xs text-blue-900 dark:text-blue-200">
+                                    <div className="flex items-center justify-between">
+                                        <span>Generated User ID: <strong className="font-mono text-brand-600 dark:text-brand-400 font-bold">{previewUserId()}</strong></span>
+                                        <span className="text-[10px] bg-blue-200 dark:bg-blue-800 px-2 py-0.5 rounded-md">Auto UpperCase</span>
+                                    </div>
+                                    <div className="flex items-center justify-between pt-1.5 border-t border-blue-100/70 dark:border-blue-900/50">
+                                        <span>Default Password: <strong className="font-mono text-amber-600 dark:text-amber-400 font-bold">{formData.password ? formData.password : previewDefaultPassword()}</strong></span>
+                                        <span className="text-[10px] bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-md font-medium">Name + Class + Roll</span>
+                                    </div>
                                 </div>
                             )}
 

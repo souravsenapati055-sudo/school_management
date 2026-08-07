@@ -74,8 +74,12 @@ const createStudent = async (req, res) => {
         // Auto-generate User ID e.g. SOURAV849 with collision protection
         const generatedUserId = await generateStudentId(name, class_name, roll_number);
 
-        // Password logic: Default password = generated User ID if empty
-        const plainPassword = password && password.trim() !== '' ? password.trim() : generatedUserId;
+        // Default password format: Name + Class + Roll Number (e.g. SOURAVClass849)
+        const firstName = name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase();
+        const cleanClass = class_name.replace(/\s+/g, '');
+        const defaultPassword = `${firstName}${cleanClass}${roll_number}`;
+
+        const plainPassword = password && password.trim() !== '' ? password.trim() : defaultPassword;
         const passwordHash = await bcrypt.hash(plainPassword, 10);
 
         // Insert into users table
@@ -96,8 +100,9 @@ const createStudent = async (req, res) => {
 
         return res.status(201).json({
             success: true,
-            message: `Student created successfully with User ID: ${generatedUserId}`,
-            generatedUserId
+            message: `Student created! User ID: ${generatedUserId} | Default Password: ${plainPassword}`,
+            generatedUserId,
+            defaultPassword: plainPassword
         });
     } catch (err) {
         console.error('Officer createStudent error:', err);
@@ -127,6 +132,13 @@ const getStudents = async (req, res) => {
 
         sql += ' ORDER BY class_name ASC, section_name ASC, roll_number ASC';
         const [students] = await query(sql, params);
+
+        // Attach calculated default initial password to each student object for display on dashboard
+        students.forEach(st => {
+            const firstName = st.name ? st.name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase() : '';
+            const cleanClass = st.class_name ? st.class_name.replace(/\s+/g, '') : '';
+            st.default_password = `${firstName}${cleanClass}${st.roll_number}`;
+        });
 
         return res.json({ success: true, students });
     } catch (err) {

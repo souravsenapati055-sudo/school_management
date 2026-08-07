@@ -205,6 +205,8 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
         }
     }
 
+    let lastProviderError = '';
+
     // Priority 0.5: Brevo API / Brevo SMTP (HTTPS Port 443 or SMTP Port 587)
     if (process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim()) {
         const brevoKey = process.env.BREVO_API_KEY.trim();
@@ -240,6 +242,7 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
                 return { success: true, sent: true, messageId: info.messageId, devOtp: otp };
             } catch (bSmtpErr) {
                 console.warn(`[EmailService Warning] Brevo SMTP failed: ${bSmtpErr.message}. Trying HTTPS REST API / Gmail SMTP...`);
+                lastProviderError = `Brevo SMTP Notice: ${bSmtpErr.message}`;
             }
         }
 
@@ -264,9 +267,11 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
                 console.log(`[EmailService Success] Brevo HTTPS email sent successfully! MessageID: ${data.messageId}`);
                 return { success: true, sent: true, messageId: data.messageId, devOtp: otp };
             }
+            lastProviderError = `Brevo API Notice: ${data.message || data.code || JSON.stringify(data)}`;
             console.warn(`[EmailService Warning] Brevo API notice: ${JSON.stringify(data)}. Falling back to Gmail SMTP...`);
         } catch (bErr) {
             console.error(`[EmailService Error] Brevo API failed: ${bErr.message}`);
+            lastProviderError = `Brevo API Exception: ${bErr.message}`;
         }
     }
 
@@ -275,7 +280,7 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
         return {
             success: true,
             sent: false,
-            message: 'OTP generated. SMTP credentials not set in server .env; OTP logged to console.',
+            message: lastProviderError || 'OTP generated. SMTP credentials not set in server .env; OTP logged to console.',
             devOtp: otp
         };
     }
@@ -315,10 +320,20 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
                 };
             } catch (fallbackErr) {
                 console.error(`[EmailService Error] Both Primary and Fallback SMTP failed: ${fallbackErr.message}`);
+                const isBrevoSmtpKey = process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim().startsWith('xsmtpsib-');
+                let extraMsg = '';
+                if (lastProviderError) {
+                    extraMsg = ` Provider details: ${lastProviderError}.`;
+                } else if (isBrevoSmtpKey) {
+                    extraMsg = ` Your BREVO_API_KEY starts with 'xsmtpsib-' (SMTP Key). Generate an 'xkeysib-' API Key in Brevo -> Account -> API Keys for HTTPS delivery over Port 443.`;
+                } else {
+                    extraMsg = ` Please add a valid RESEND_API_KEY (re_...) or Brevo v3 API Key (xkeysib-...) in Railway for HTTPS delivery over Port 443.`;
+                }
+
                 return {
                     success: true,
                     sent: false,
-                    message: `Failed to deliver email to ${toEmail}: Railway network blocks outbound SMTP (ports 465/587). Add a RESEND_API_KEY or BREVO_API_KEY variable in Railway for HTTPS delivery. OTP logged to server console.`,
+                    message: `Failed to deliver email to ${toEmail}: Railway network blocks outbound SMTP ports 465/587.${extraMsg}`,
                     devOtp: otp
                 };
             }

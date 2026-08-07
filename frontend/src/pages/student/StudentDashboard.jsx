@@ -43,22 +43,15 @@ const StudentDashboard = () => {
     const handleDownloadPDF = async (examName) => {
         setDownloadingExam(examName);
         try {
-            const token = localStorage.getItem('school_token');
-            const response = await fetch(`/api/student/result-pdf?exam_name=${encodeURIComponent(examName)}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+            const res = await API.get(`/student/result-pdf?exam_name=${encodeURIComponent(examName)}`, {
+                responseType: 'blob'
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to generate PDF');
-            }
-
-            const blob = await response.blob();
+            const blob = new Blob([res.data], { type: 'application/pdf' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Marksheet_${user?.userId}_${examName.replace(/\s+/g, '_')}.pdf`;
+            a.download = `Marksheet_${user?.userId || 'Student'}_${examName.replace(/\s+/g, '_')}.pdf`;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -66,7 +59,8 @@ const StudentDashboard = () => {
 
             setToast({ type: 'success', message: 'Official Marksheet PDF downloaded successfully!' });
         } catch (err) {
-            setToast({ type: 'error', message: 'Error downloading result PDF' });
+            console.error('Download PDF error:', err);
+            setToast({ type: 'error', message: 'Error generating/downloading result PDF' });
         } finally {
             setDownloadingExam('');
         }
