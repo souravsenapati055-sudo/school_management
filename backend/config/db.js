@@ -514,8 +514,41 @@ async function seedDatabaseIfEmpty() {
 
         // Always check and auto-seed 100 students if missing or less than 20
         await seed100StudentsIfMissing();
+        await ensureSequentialRollNumbers();
     } catch (err) {
         console.error('Error seeding database:', err.message);
+    }
+}
+
+async function ensureSequentialRollNumbers() {
+    try {
+        const { generateStudentAdmissionNumber } = require('../utils/idGenerator');
+        const [classes] = await query('SELECT DISTINCT class_name FROM students ORDER BY class_name ASC');
+
+        for (const cls of classes) {
+            const className = cls.class_name;
+            const [sections] = await query('SELECT DISTINCT section_name FROM students WHERE class_name = ? ORDER BY section_name ASC', [className]);
+
+            for (const sec of sections) {
+                const sectionName = sec.section_name;
+                const [studentsInSec] = await query(
+                    'SELECT * FROM students WHERE class_name = ? AND section_name = ? ORDER BY id ASC',
+                    [className, sectionName]
+                );
+
+                let roll = 1;
+                for (const st of studentsInSec) {
+                    const newAdmNo = generateStudentAdmissionNumber(st.name, roll, sectionName, 2026);
+                    await query(
+                        'UPDATE students SET roll_number = ?, admission_number = ? WHERE id = ?',
+                        [roll, newAdmNo, st.id]
+                    );
+                    roll++;
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error ensuring sequential roll numbers:', e.message);
     }
 }
 
@@ -525,6 +558,7 @@ async function seed100StudentsIfMissing() {
         const count = rows[0]?.cnt || rows[0]?.['COUNT(*)'] || 0;
 
         if (count >= 20) {
+            await ensureSequentialRollNumbers();
             return;
         }
 
