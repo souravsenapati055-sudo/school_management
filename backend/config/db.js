@@ -84,6 +84,7 @@ async function initDB() {
 
                     await initMysqlTables();
                     await seedDatabaseIfEmpty();
+                    await ensureSequentialRollNumbers();
                     return;
                 } catch (err) {
                     console.error(`MySQL connection attempt ${attempts} for ${candidate.name} failed:`, err.message);
@@ -523,6 +524,11 @@ async function seedDatabaseIfEmpty() {
 async function ensureSequentialRollNumbers() {
     try {
         const { generateStudentAdmissionNumber, generateStudentDefaultPassword } = require('../utils/idGenerator');
+
+        // Disable foreign key checks for bulk update transaction (MySQL / SQLite safe)
+        try { await query('SET FOREIGN_KEY_CHECKS = 0'); } catch (e) {}
+        try { await query('PRAGMA foreign_keys = OFF'); } catch (e) {}
+
         const [classes] = await query('SELECT DISTINCT class_name FROM students ORDER BY class_name ASC');
 
         for (const cls of classes) {
@@ -543,18 +549,31 @@ async function ensureSequentialRollNumbers() {
                     const newPassHash = await bcrypt.hash(newDefaultPass, 10);
                     const oldUserId = st.user_id;
 
+                    // Update users table credentials
                     await query(
                         'UPDATE users SET user_id = ?, password_hash = ? WHERE LOWER(user_id) = LOWER(?)',
                         [newAdmNo, newPassHash, oldUserId]
                     );
+                    // Update students table details
                     await query(
                         'UPDATE students SET user_id = ?, roll_number = ?, admission_number = ? WHERE id = ?',
                         [newAdmNo, roll, newAdmNo, st.id]
                     );
+                    // Update results table student_id references
+                    try {
+                        await query(
+                            'UPDATE results SET student_id = ? WHERE LOWER(student_id) = LOWER(?)',
+                            [newAdmNo, oldUserId]
+                        );
+                    } catch (errRes) {}
+
                     roll++;
                 }
             }
         }
+
+        try { await query('SET FOREIGN_KEY_CHECKS = 1'); } catch (e) {}
+        try { await query('PRAGMA foreign_keys = ON'); } catch (e) {}
     } catch (e) {
         console.error('Error ensuring sequential roll numbers:', e.message);
     }
