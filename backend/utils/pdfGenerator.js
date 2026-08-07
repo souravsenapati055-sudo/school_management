@@ -73,8 +73,8 @@ function generateMarksheetPDF(studentData, resultData, subjectMarks, attendanceD
     doc.font('Helvetica-Bold').text('Admission No:', 320, profileY + 32);
     doc.font('Helvetica').text(studentData.admission_number || 'N/A', 420, profileY + 32);
 
-    doc.font('Helvetica-Bold').text('Attendance %:', 320, profileY + 52);
-    doc.font('Helvetica').text(`${attendanceData.overall_percentage || 0}%`, 420, profileY + 52);
+    doc.font('Helvetica-Bold').text('Date of Birth:', 320, profileY + 52);
+    doc.font('Helvetica').text(studentData.dob ? String(studentData.dob).split('T')[0] : 'N/A', 420, profileY + 52);
 
     // 4. Dynamic Subjects Performance Table
     const tableTop = 280;

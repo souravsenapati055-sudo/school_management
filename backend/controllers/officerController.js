@@ -67,8 +67,8 @@ const createStudent = async (req, res) => {
             admission_number, dob, password
         } = req.body;
 
-        if (!name || !roll_number || !class_name || !section_name) {
-            return res.status(400).json({ success: false, message: 'Name, Roll Number, Class, and Section are required' });
+        if (!name || !roll_number || !class_name || !section_name || !dob || String(dob).trim() === '') {
+            return res.status(400).json({ success: false, message: 'Name, Roll Number, Class, Section, and Date of Birth (DOB) are required' });
         }
 
         // 1. Check unique roll number within same class & section
@@ -92,9 +92,9 @@ const createStudent = async (req, res) => {
             });
         }
 
-        // 2. Auto-generate Admission Number & User ID e.g. SOURAV202649A
+        // 2. Auto-generate Admission Number & User ID e.g. SOURAV20269B
         const currentYear = new Date().getFullYear();
-        const autoAdmissionNo = generateStudentAdmissionNumber(name, roll_number, section_name, currentYear);
+        const autoAdmissionNo = await generateStudentAdmissionNumber(name, class_name, section_name, currentYear);
         const finalAdmissionNo = (admission_number && String(admission_number).trim() !== '') 
             ? String(admission_number).trim().toUpperCase() 
             : autoAdmissionNo;
@@ -255,9 +255,9 @@ const promoteStudent = async (req, res) => {
             });
         }
 
-        // Generate updated admission number (SOURAV202649A)
+        // Generate updated admission number (e.g. SOURAV20269B)
         const currentYear = new Date().getFullYear();
-        const updatedAdmissionNo = generateStudentAdmissionNumber(student.name, new_roll_number, target_section_name, currentYear);
+        const updatedAdmissionNo = await generateStudentAdmissionNumber(student.name, target_class_name, target_section_name, currentYear, user_id);
 
         await query(`
             UPDATE students 

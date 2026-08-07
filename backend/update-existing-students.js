@@ -1,18 +1,23 @@
 const { initDB, query } = require('./config/db');
-const { generateStudentAdmissionNumber } = require('./utils/idGenerator');
+const { generateStudentAdmissionNumberSync } = require('./utils/idGenerator');
 
 async function updateExistingStudentsData() {
     console.log('🚀 Migration: Updating all existing student admission IDs and roll numbers...');
     await initDB();
 
-    // 1. Fetch all classes & sections to ensure unique roll numbers per class & section
-    const [classes] = await query('SELECT DISTINCT class_name FROM students');
+    const usedAdmissionIds = new Set();
+    const [nonStudents] = await query('SELECT user_id FROM users WHERE role != "Student"');
+    if (Array.isArray(nonStudents)) {
+        nonStudents.forEach(u => usedAdmissionIds.add(String(u.user_id).toLowerCase()));
+    }
+
+    const [classes] = await query('SELECT DISTINCT class_name FROM students ORDER BY class_name ASC');
 
     let totalUpdated = 0;
 
     for (const cls of classes) {
         const className = cls.class_name;
-        const [sections] = await query('SELECT DISTINCT section_name FROM students WHERE class_name = ?', [className]);
+        const [sections] = await query('SELECT DISTINCT section_name FROM students WHERE class_name = ? ORDER BY section_name ASC', [className]);
 
         for (const sec of sections) {
             const sectionName = sec.section_name;
@@ -21,28 +26,33 @@ async function updateExistingStudentsData() {
                 [className, sectionName]
             );
 
-            // Re-assign distinct sequential roll numbers (1, 2, 3...) if duplicates exist
-            const usedRolls = new Set();
-            let currentRoll = 1;
-
+            let roll = 1;
             for (const st of studentsInSec) {
-                let targetRoll = st.roll_number;
-                if (!targetRoll || usedRolls.has(targetRoll)) {
-                    while (usedRolls.has(currentRoll)) {
-                        currentRoll++;
-                    }
-                    targetRoll = currentRoll;
-                }
-                usedRolls.add(targetRoll);
-
-                // Calculate new formula Admission ID: UPPERCASE(FirstName + 2026 + Roll + Section) e.g. SOURAV202649A
-                const newAdmNo = generateStudentAdmissionNumber(st.name, targetRoll, sectionName, 2026);
+                const newAdmNo = generateStudentAdmissionNumberSync(st.name, className, sectionName, 2026, usedAdmissionIds);
+                const oldUserId = st.user_id;
 
                 await query(
-                    'UPDATE students SET roll_number = ?, admission_number = ? WHERE id = ?',
-                    [targetRoll, newAdmNo, st.id]
+                    'UPDATE users SET user_id = ? WHERE LOWER(user_id) = LOWER(?)',
+                    [newAdmNo, oldUserId]
                 );
+                await query(
+                    'UPDATE students SET user_id = ?, roll_number = ?, admission_number = ? WHERE id = ?',
+                    [newAdmNo, roll, newAdmNo, st.id]
+                );
+                try {
+                    await query(
+                        'UPDATE results SET student_id = ? WHERE LOWER(student_id) = LOWER(?)',
+                        [newAdmNo, oldUserId]
+                    );
+                } catch (e) {}
+                try {
+                    await query(
+                        'UPDATE attendance_details SET student_id = ? WHERE LOWER(student_id) = LOWER(?)',
+                        [newAdmNo, oldUserId]
+                    );
+                } catch (e) {}
 
+                roll++;
                 totalUpdated++;
             }
         }

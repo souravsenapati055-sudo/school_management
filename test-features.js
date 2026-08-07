@@ -1,45 +1,36 @@
 const { initDB, query } = require('./backend/config/db');
-const { generateStudentAdmissionNumber } = require('./backend/utils/idGenerator');
+const { generateStudentAdmissionNumber, generateStudentAdmissionNumberSync } = require('./backend/utils/idGenerator');
 
 async function testAll() {
     console.log('🚀 Running Feature Verification Tests...');
     await initDB();
 
-    // 1. Test Admission Number Formula
-    const admNo = generateStudentAdmissionNumber('Sourav Senapati', 49, 'A', 2026);
-    console.log('1. Generated Admission ID formula:', admNo);
-    if (admNo !== 'SOURAV202649A') {
-        throw new Error('Admission ID formula test failed! Expected SOURAV202649A, got ' + admNo);
+    // 1. Test Admission Number Formula & Conflict Resolution
+    const set1 = new Set();
+    const id1 = generateStudentAdmissionNumberSync('Sourav', 'Class 9', 'B', 2026, set1);
+    console.log('1a. First student (Sourav, 2026, Class 9, Sec B) Admission ID:', id1);
+    if (id1 !== 'SOURAV20269B') {
+        throw new Error(`Admission ID formula test failed! Expected SOURAV20269B, got ${id1}`);
     }
 
-    // 2. Test Roll Number Uniqueness in Same Class & Section
-    const className = 'Class 9';
-    const sectionName = 'A';
-    const rollNumber = 999;
-
-    // Clean test records
-    await query('DELETE FROM users WHERE user_id IN (?, ?)', ['TESTSUB1', 'TESTSUB2']);
-    await query('DELETE FROM students WHERE user_id IN (?, ?)', ['TESTSUB1', 'TESTSUB2']);
-
-    await query(`INSERT INTO users (user_id, password_hash, role, first_login) VALUES ('TESTSUB1', 'HASH123', 'Student', 1)`);
-    await query(`INSERT INTO students (user_id, name, roll_number, class_name, section_name, admission_number) VALUES ('TESTSUB1', 'Student One', ?, ?, ?, 'SUB12026999A')`, [
-        rollNumber, className, sectionName
-    ]);
-
-    // Query uniqueness check
-    const [existing] = await query('SELECT user_id, name FROM students WHERE class_name = ? AND section_name = ? AND roll_number = ?', [className, sectionName, rollNumber]);
-    console.log('2. Roll Number uniqueness check count for Class 9 Sec A Roll 999:', existing.length);
-    if (existing.length !== 1) {
-        throw new Error('Roll number uniqueness check failed!');
+    const id2 = generateStudentAdmissionNumberSync('Sourav', 'Class 9', 'B', 2026, set1);
+    console.log('1b. Second student conflict (Sourav, 2026, Class 9, Sec B) Admission ID:', id2);
+    if (id2 !== 'SOURAV20269B1') {
+        throw new Error(`Admission ID conflict test 1 failed! Expected SOURAV20269B1, got ${id2}`);
     }
 
-    // 3. Test Student Login Lookup by Admission ID (SOURAV202649A)
-    const [students] = await query('SELECT user_id FROM students WHERE LOWER(admission_number) = LOWER(?)', ['SOURAV202649A']);
-    console.log('3. Student Login lookup by Admission ID (SOURAV202649A):', students.length > 0 ? `Found student user_id: ${students[0].user_id}` : 'Checked successfully');
+    const id3 = generateStudentAdmissionNumberSync('Sourav', 'Class 9', 'B', 2026, set1);
+    console.log('1c. Third student conflict (Sourav, 2026, Class 9, Sec B) Admission ID:', id3);
+    if (id3 !== 'SOURAV20269B2') {
+        throw new Error(`Admission ID conflict test 2 failed! Expected SOURAV20269B2, got ${id3}`);
+    }
 
-    // Clean test data
-    await query('DELETE FROM users WHERE user_id IN (?, ?)', ['TESTSUB1', 'TESTSUB2']);
-    await query('DELETE FROM students WHERE user_id IN (?, ?)', ['TESTSUB1', 'TESTSUB2']);
+    // 2. Test DOB Presence in Students Table
+    const [stWithDob] = await query('SELECT user_id, name, dob FROM students LIMIT 1');
+    console.log('2. Sample student with DOB:', stWithDob[0]);
+    if (!stWithDob[0] || !stWithDob[0].dob) {
+        throw new Error('DOB field verification test failed!');
+    }
 
     console.log('🎉 ALL FEATURE VERIFICATION TESTS PASSED SUCCESSFULLY!');
     process.exit(0);

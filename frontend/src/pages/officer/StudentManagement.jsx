@@ -95,21 +95,24 @@ const StudentManagement = () => {
 
     // Live auto-generated User ID preview
     const previewUserId = () => {
-        if (!formData.name.trim()) return 'SOURAV949';
-        const firstName = formData.name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase();
-        const classNum = formData.class_name.replace(/\D/g, '') || '8';
-        const roll = formData.roll_number || '49';
-        return `${firstName}${classNum}${roll}`.toUpperCase();
+        if (!formData.name.trim()) return 'SOURAV20269B';
+        const firstName = formData.name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase() || 'STUDENT';
+        const year = new Date().getFullYear();
+        const classMatch = formData.class_name ? formData.class_name.match(/\d+/) : null;
+        const classNum = classMatch ? classMatch[0] : (formData.class_name || '9').replace(/\D/g, '') || '9';
+        const section = (formData.section_name || 'B').trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        return `${firstName}${year}${classNum}${section}`;
     };
 
-    // Live auto-generated Admission ID preview: UPPERCASE(FirstName + Year + Roll + Section) e.g. SOURAV202649A
+    // Live auto-generated Admission ID preview: UPPERCASE(FirstName + Year + Class + Section) e.g. SOURAV20269B
     const previewAdmissionId = () => {
-        if (!formData.name.trim()) return 'SOURAV202649A';
-        const firstName = formData.name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase();
+        if (!formData.name.trim()) return 'SOURAV20269B';
+        const firstName = formData.name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase() || 'STUDENT';
         const year = new Date().getFullYear();
-        const roll = formData.roll_number || '49';
-        const section = (formData.section_name || 'A').trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        return `${firstName}${year}${roll}${section}`;
+        const classMatch = formData.class_name ? formData.class_name.match(/\d+/) : null;
+        const classNum = classMatch ? classMatch[0] : (formData.class_name || '9').replace(/\D/g, '') || '9';
+        const section = (formData.section_name || 'B').trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        return `${firstName}${year}${classNum}${section}`;
     };
 
     // Live auto-generated Default Password preview (Name + Class Digit + Roll Number + Section)
@@ -325,6 +328,7 @@ const StudentManagement = () => {
                             <th className="p-2 border border-gray-900">Student Name</th>
                             <th className="p-2 border border-gray-900">Class & Sec</th>
                             <th className="p-2 border border-gray-900">Roll No</th>
+                            <th className="p-2 border border-gray-900">DOB</th>
                             <th className="p-2 border border-gray-900">Father's Name</th>
                             <th className="p-2 border border-gray-900">Mobile Number</th>
                             <th className="p-2 border border-gray-900">Assigned Email</th>
@@ -338,6 +342,7 @@ const StudentManagement = () => {
                                 <td className="p-2 border border-gray-400 font-bold text-gray-900">{st.name}</td>
                                 <td className="p-2 border border-gray-400 font-semibold">{st.class_name} - {st.section_name}</td>
                                 <td className="p-2 border border-gray-400 font-mono font-bold">#{st.roll_number}</td>
+                                <td className="p-2 border border-gray-400 font-mono font-semibold">{st.dob ? st.dob.split('T')[0] : 'N/A'}</td>
                                 <td className="p-2 border border-gray-400">{st.father_name || 'N/A'}</td>
                                 <td className="p-2 border border-gray-400 font-mono font-bold">{st.mobile_number || 'N/A'}</td>
                                 <td className="p-2 border border-gray-400 text-gray-800">{st.email || 'N/A'}</td>
@@ -369,6 +374,7 @@ const StudentManagement = () => {
                                 <th className="p-4">Student Name</th>
                                 <th className="p-4">Class & Sec</th>
                                 <th className="p-4">Roll No</th>
+                                <th className="p-4">DOB</th>
                                 <th className="p-4">Assigned Email</th>
                                 <th className="p-4">Mobile</th>
                                 <th className="p-4 text-right">Actions</th>
@@ -395,6 +401,9 @@ const StudentManagement = () => {
                                     </td>
                                     <td className="p-4 font-mono text-gray-900 dark:text-white font-bold">
                                         #{st.roll_number}
+                                    </td>
+                                    <td className="p-4 text-gray-600 dark:text-gray-300 font-mono text-xs font-semibold">
+                                        {st.dob ? st.dob.split('T')[0] : 'N/A'}
                                     </td>
                                     <td className="p-4 text-gray-600 dark:text-gray-300 text-xs font-medium">
                                         {st.email ? (
@@ -558,6 +567,20 @@ const StudentManagement = () => {
                                         onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value })}
                                         placeholder="10-digit mobile"
                                         className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between">
+                                        <span>Date of Birth (DOB) *</span>
+                                        <span className="text-[10px] text-rose-500 font-medium">Required</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={formData.dob}
+                                        onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+                                        className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:border-brand-500"
                                     />
                                 </div>
 

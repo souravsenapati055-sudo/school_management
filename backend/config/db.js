@@ -523,12 +523,32 @@ async function seedDatabaseIfEmpty() {
 
 async function ensureSequentialRollNumbers() {
     try {
-        const { generateStudentAdmissionNumber, generateStudentDefaultPassword } = require('../utils/idGenerator');
+        const { generateStudentAdmissionNumberSync, generateStudentDefaultPassword } = require('../utils/idGenerator');
 
         // Disable foreign key checks for bulk update transaction (MySQL / SQLite safe)
         try { await query('SET FOREIGN_KEY_CHECKS = 0'); } catch (e) {}
         try { await query('PRAGMA foreign_keys = OFF'); } catch (e) {}
 
+        const usedAdmissionIds = new Set();
+        // Add non-student user_ids to set to prevent collisions with teachers/officers
+        const [nonStudents] = await query('SELECT user_id FROM users WHERE role != "Student"');
+        if (Array.isArray(nonStudents)) {
+            nonStudents.forEach(u => usedAdmissionIds.add(String(u.user_id).toLowerCase()));
+        }
+
+        // Step 1: Temporarily prefix all existing student user_ids with TEMP_ to prevent UNIQUE constraint collisions during updates
+        const [allStudents] = await query('SELECT id, user_id FROM students');
+        for (const st of allStudents) {
+            if (!st.user_id.startsWith('TEMP_')) {
+                const tempUserId = 'TEMP_' + st.user_id;
+                await query('UPDATE users SET user_id = ? WHERE LOWER(user_id) = LOWER(?)', [tempUserId, st.user_id]);
+                await query('UPDATE students SET user_id = ? WHERE id = ?', [tempUserId, st.id]);
+                try { await query('UPDATE results SET student_id = ? WHERE LOWER(student_id) = LOWER(?)', [tempUserId, st.user_id]); } catch (e) {}
+                try { await query('UPDATE attendance_details SET student_id = ? WHERE LOWER(student_id) = LOWER(?)', [tempUserId, st.user_id]); } catch (e) {}
+            }
+        }
+
+        // Step 2: Assign new admission IDs and roll numbers per class and section
         const [classes] = await query('SELECT DISTINCT class_name FROM students ORDER BY class_name ASC');
 
         for (const cls of classes) {
@@ -544,7 +564,7 @@ async function ensureSequentialRollNumbers() {
 
                 let roll = 1;
                 for (const st of studentsInSec) {
-                    const newAdmNo = generateStudentAdmissionNumber(st.name, roll, sectionName, 2026);
+                    const newAdmNo = generateStudentAdmissionNumberSync(st.name, className, sectionName, 2026, usedAdmissionIds);
                     const newDefaultPass = generateStudentDefaultPassword(st.name, className, roll, sectionName);
                     const newPassHash = await bcrypt.hash(newDefaultPass, 10);
                     const oldUserId = st.user_id;
@@ -566,6 +586,13 @@ async function ensureSequentialRollNumbers() {
                             [newAdmNo, oldUserId]
                         );
                     } catch (errRes) {}
+                    // Update attendance_details table student_id references
+                    try {
+                        await query(
+                            'UPDATE attendance_details SET student_id = ? WHERE LOWER(student_id) = LOWER(?)',
+                            [newAdmNo, oldUserId]
+                        );
+                    } catch (errAtt) {}
 
                     roll++;
                 }
