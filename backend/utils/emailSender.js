@@ -163,47 +163,41 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
             if (!resendRes.ok) {
                 console.warn(`[EmailService Warning] Resend API notice: ${JSON.stringify(data)}`);
 
-                // If in Resend testing mode, auto-reroute test email to owner address so developer receives actual email
+                // If in Resend testing mode, only use Resend if recipient is owner email, otherwise fall through to SMTP/Brevo
                 if (data && data.message && data.message.includes('only send testing emails')) {
                     const ownerMatch = data.message.match(/\(([^)]+)\)/);
-                    const ownerEmail = ownerMatch ? ownerMatch[1] : (process.env.GMAIL_USER || 'souravsenapati055@gmail.com');
+                    const ownerEmail = (ownerMatch ? ownerMatch[1] : (process.env.GMAIL_USER || 'souravsenapati055@gmail.com')).toLowerCase().trim();
 
-                    console.log(`[EmailService] Resend in testing mode. Rerouting test OTP email to owner address: ${ownerEmail}`);
+                    if (toEmail.toLowerCase().trim() === ownerEmail) {
+                        // Recipient is the owner, try sending directly to owner
+                        const retryResend = await fetch('https://api.resend.com/emails', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                from: 'Majuria Baispatra High School <onboarding@resend.dev>',
+                                to: [ownerEmail],
+                                subject: subject,
+                                html: htmlContent
+                            })
+                        });
 
-                    const retryResend = await fetch('https://api.resend.com/emails', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${process.env.RESEND_API_KEY.trim()}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            from: 'Majuria Baispatra High School <onboarding@resend.dev>',
-                            to: [ownerEmail],
-                            subject: subject,
-                            html: htmlContent
-                        })
-                    });
-
-                    const retryData = await retryResend.json();
-                    if (retryResend.ok) {
-                        console.log(`[EmailService Success] Rerouted test OTP email sent to ${ownerEmail}! ID: ${retryData.id}`);
-                        return {
-                            success: true,
-                            sent: true,
-                            messageId: retryData.id,
-                            devOtp: otp,
-                            message: `OTP sent successfully to registered email`
-                        };
+                        const retryData = await retryResend.json();
+                        if (retryResend.ok) {
+                            console.log(`[EmailService Success] Resend sandbox email sent to owner ${ownerEmail}! ID: ${retryData.id}`);
+                            return {
+                                success: true,
+                                sent: true,
+                                messageId: retryData.id,
+                                devOtp: otp,
+                                message: `OTP sent successfully to registered email`
+                            };
+                        }
+                    } else {
+                        console.warn(`[EmailService Notice] Resend is in free testing mode and cannot deliver to target email (${toEmail}). Falling back to SMTP/Brevo delivery...`);
                     }
-                }
-
-                if (data && data.message) {
-                    return {
-                        success: true,
-                        sent: false,
-                        message: `Resend Notice: ${data.message}`,
-                        devOtp: otp
-                    };
                 }
             }
         } catch (rErr) {

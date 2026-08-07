@@ -48,15 +48,18 @@ const submitAttendance = async (req, res) => {
 
         // Upsert individual student attendance records
         for (const record of attendance_records) {
-            const [details] = await query('SELECT id FROM attendance_details WHERE attendance_id = ? AND student_id = ?', [
-                attendanceId, record.student_id
+            const [uCheck] = await query('SELECT user_id FROM users WHERE LOWER(user_id) = LOWER(?)', [record.student_id]);
+            const targetStudentId = uCheck.length > 0 ? uCheck[0].user_id : record.student_id;
+
+            const [details] = await query('SELECT id FROM attendance_details WHERE attendance_id = ? AND LOWER(student_id) = LOWER(?)', [
+                attendanceId, targetStudentId
             ]);
 
             if (details.length > 0) {
                 await query('UPDATE attendance_details SET status = ? WHERE id = ?', [record.status, details[0].id]);
             } else {
                 await query('INSERT INTO attendance_details (attendance_id, student_id, status) VALUES (?, ?, ?)', [
-                    attendanceId, record.student_id, record.status
+                    attendanceId, targetStudentId, record.status
                 ]);
             }
         }
@@ -87,7 +90,7 @@ const getAttendanceRecords = async (req, res) => {
         const [records] = await query(`
             SELECT ad.student_id, ad.status, s.name, s.roll_number 
             FROM attendance_details ad
-            JOIN students s ON ad.student_id = s.user_id
+            JOIN students s ON LOWER(ad.student_id) = LOWER(s.user_id)
             WHERE ad.attendance_id = ?
             ORDER BY s.roll_number ASC
         `, [master[0].id]);
@@ -110,7 +113,7 @@ const createHomework = async (req, res) => {
 
         await query(`INSERT INTO homework (class_name, section_name, subject_name, title, description, due_date, teacher_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)`, [
-            class_name, section_name, subject_name, title, description || '', due_date, teacherId
+            class_name.trim(), section_name.trim(), subject_name.trim(), title.trim(), description || '', due_date, teacherId
         ]);
 
         return res.status(201).json({ success: true, message: 'Homework published successfully' });
@@ -127,12 +130,12 @@ const getHomeworkList = async (req, res) => {
         let params = [];
 
         if (class_name) {
-            sql += ' AND class_name = ?';
-            params.push(class_name);
+            sql += ' AND LOWER(class_name) = LOWER(?)';
+            params.push(class_name.trim());
         }
         if (section_name) {
-            sql += ' AND section_name = ?';
-            params.push(section_name);
+            sql += ' AND LOWER(section_name) = LOWER(?)';
+            params.push(section_name.trim());
         }
 
         sql += ' ORDER BY id DESC';
@@ -148,7 +151,7 @@ const getHomeworkList = async (req, res) => {
 const getConfiguredSubjectsForClass = async (req, res) => {
     try {
         const { class_name } = req.params;
-        const [subjects] = await query('SELECT subject_name FROM class_subjects WHERE class_name = ?', [class_name]);
+        const [subjects] = await query('SELECT subject_name FROM class_subjects WHERE LOWER(class_name) = LOWER(?)', [class_name.trim()]);
         return res.json({ success: true, subjects: subjects.map(s => s.subject_name) });
     } catch (err) {
         return res.status(500).json({ success: false, message: 'Internal server error' });
@@ -163,6 +166,10 @@ const uploadStudentMarks = async (req, res) => {
         if (!exam_name || !class_name || !section_name || !student_id || !Array.isArray(marks_data)) {
             return res.status(400).json({ success: false, message: 'Invalid result upload payload' });
         }
+
+        // Fetch exact case user_id from users table
+        const [uCheck] = await query('SELECT user_id FROM users WHERE LOWER(user_id) = LOWER(?)', [student_id]);
+        const targetStudentId = uCheck.length > 0 ? uCheck[0].user_id : student_id;
 
         // Calculate Totals & Percentage
         let totalObtained = 0;
@@ -185,8 +192,8 @@ const uploadStudentMarks = async (req, res) => {
         else if (percentage >= 33) grade = 'D';
 
         // Check if result record already exists
-        const [existing] = await query('SELECT id FROM results WHERE exam_name = ? AND student_id = ?', [
-            exam_name, student_id
+        const [existing] = await query('SELECT id FROM results WHERE TRIM(LOWER(exam_name)) = TRIM(LOWER(?)) AND LOWER(student_id) = LOWER(?)', [
+            exam_name, targetStudentId
         ]);
 
         let resultId;
@@ -200,7 +207,7 @@ const uploadStudentMarks = async (req, res) => {
         } else {
             const [resMaster] = await query(`INSERT INTO results (exam_name, class_name, section_name, student_id, total_marks, percentage, grade, remarks) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
-                exam_name, class_name, section_name, student_id, totalObtained, percentage, grade, remarks || 'Good'
+                exam_name.trim(), class_name.trim(), section_name.trim(), targetStudentId, totalObtained, percentage, grade, remarks || 'Good'
             ]);
             resultId = resMaster.insertId;
         }
@@ -208,13 +215,13 @@ const uploadStudentMarks = async (req, res) => {
         // Insert new subject marks
         for (const item of marks_data) {
             await query('INSERT INTO result_details (result_id, subject_name, marks_obtained, max_marks) VALUES (?, ?, ?, ?)', [
-                resultId, item.subject_name, parseFloat(item.marks_obtained), parseFloat(item.max_marks || 100)
+                resultId, item.subject_name.trim(), parseFloat(item.marks_obtained), parseFloat(item.max_marks || 100)
             ]);
         }
 
         return res.json({
             success: true,
-            message: `Marks uploaded successfully for Student ${student_id}`,
+            message: `Marks uploaded successfully for Student ${targetStudentId}`,
             summary: { totalObtained, percentage, grade }
         });
     } catch (err) {

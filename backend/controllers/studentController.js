@@ -6,8 +6,8 @@ const getStudentDashboard = async (req, res) => {
     try {
         const studentId = req.user.userId;
 
-        // Fetch Student Profile
-        const [students] = await query('SELECT * FROM students WHERE user_id = ?', [studentId]);
+        // Fetch Student Profile (Case-insensitive match)
+        const [students] = await query('SELECT * FROM students WHERE LOWER(user_id) = LOWER(?)', [studentId]);
         if (students.length === 0) {
             return res.status(404).json({ success: false, message: 'Student record not found' });
         }
@@ -19,7 +19,7 @@ const getStudentDashboard = async (req, res) => {
                 COUNT(*) as total_days,
                 SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as present_days
             FROM attendance_details
-            WHERE student_id = ?
+            WHERE LOWER(student_id) = LOWER(?)
         `, [studentId]);
 
         const totalDays = attSummary[0]?.total_days || 0;
@@ -34,25 +34,25 @@ const getStudentDashboard = async (req, res) => {
                 SUM(CASE WHEN ad.status = 'Present' THEN 1 ELSE 0 END) as present
             FROM attendance_details ad
             JOIN attendance a ON ad.attendance_id = a.id
-            WHERE ad.student_id = ?
+            WHERE LOWER(ad.student_id) = LOWER(?)
             GROUP BY a.date
             ORDER BY a.date DESC
         `, [studentId]);
 
         // Latest Homework for student's class
         const [homeworkList] = await query(
-            'SELECT * FROM homework WHERE class_name = ? AND section_name = ? ORDER BY due_date DESC LIMIT 5',
-            [student.class_name, student.section_name]
+            'SELECT * FROM homework WHERE LOWER(class_name) = LOWER(?) AND LOWER(section_name) = LOWER(?) ORDER BY due_date DESC LIMIT 10',
+            [student.class_name ? student.class_name.trim() : '', student.section_name ? student.section_name.trim() : '']
         );
 
         // Latest Notices
         const [notices] = await query(
-            "SELECT * FROM notices WHERE target_audience IN ('All', 'Student') ORDER BY id DESC LIMIT 5"
+            "SELECT * FROM notices WHERE target_audience IN ('All', 'Student') ORDER BY id DESC LIMIT 10"
         );
 
         // Exam Results Summary
         const [results] = await query(
-            'SELECT * FROM results WHERE student_id = ? ORDER BY id DESC',
+            'SELECT * FROM results WHERE LOWER(student_id) = LOWER(?) ORDER BY id DESC',
             [studentId]
         );
 
@@ -94,14 +94,14 @@ const downloadMarksheetPDF = async (req, res) => {
         }
 
         // Fetch Student Profile
-        const [students] = await query('SELECT * FROM students WHERE user_id = ?', [studentId]);
+        const [students] = await query('SELECT * FROM students WHERE LOWER(user_id) = LOWER(?)', [studentId]);
         if (students.length === 0) {
             return res.status(404).json({ success: false, message: 'Student profile not found' });
         }
         const student = students[0];
 
         // Fetch Result Record
-        const [results] = await query('SELECT * FROM results WHERE student_id = ? AND exam_name = ?', [
+        const [results] = await query('SELECT * FROM results WHERE LOWER(student_id) = LOWER(?) AND TRIM(LOWER(exam_name)) = TRIM(LOWER(?))', [
             studentId, exam_name
         ]);
 
@@ -121,7 +121,7 @@ const downloadMarksheetPDF = async (req, res) => {
                 COUNT(*) as total_days,
                 SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as present_days
             FROM attendance_details
-            WHERE student_id = ?
+            WHERE LOWER(student_id) = LOWER(?)
         `, [studentId]);
 
         const totalDays = attSummary[0]?.total_days || 0;
