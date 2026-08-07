@@ -205,15 +205,51 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
         }
     }
 
-    // Priority 0.5: Brevo API (HTTPS Port 443 - Never blocked on Railway)
+    // Priority 0.5: Brevo API / Brevo SMTP (HTTPS Port 443 or SMTP Port 587)
     if (process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim()) {
+        const brevoKey = process.env.BREVO_API_KEY.trim();
+        const senderEmail = process.env.GMAIL_USER || 'souravsenapati055@gmail.com';
+
+        // 1. If key is an SMTP Key (starts with xsmtpsib-), use Brevo SMTP Relay
+        if (brevoKey.startsWith('xsmtpsib-')) {
+            try {
+                console.log(`[EmailService] Attempting to send OTP via Brevo SMTP Relay (Port 587 STARTTLS)...`);
+                const brevoTransport = nodemailer.createTransport({
+                    host: 'smtp-relay.brevo.com',
+                    port: 587,
+                    secure: false,
+                    auth: {
+                        user: senderEmail,
+                        pass: brevoKey
+                    },
+                    family: 4,
+                    tls: { rejectUnauthorized: false },
+                    connectionTimeout: 8000,
+                    greetingTimeout: 8000,
+                    socketTimeout: 8000
+                });
+
+                const info = await brevoTransport.sendMail({
+                    from: `"Majuria Baispatra S.M High School" <${senderEmail}>`,
+                    to: toEmail,
+                    subject: subject,
+                    html: htmlContent
+                });
+
+                console.log(`[EmailService Success] Brevo SMTP email sent successfully! Message ID: ${info.messageId}`);
+                return { success: true, sent: true, messageId: info.messageId, devOtp: otp };
+            } catch (bSmtpErr) {
+                console.warn(`[EmailService Warning] Brevo SMTP failed: ${bSmtpErr.message}. Trying HTTPS REST API / Gmail SMTP...`);
+            }
+        }
+
+        // 2. Try Brevo HTTPS REST API (for v3 API keys starting with xkeysib-)
         try {
             console.log(`[EmailService] Attempting to send OTP via Brevo HTTPS API...`);
-            const senderEmail = process.env.GMAIL_USER || 'souravsenapati055@gmail.com';
             const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
                 method: 'POST',
                 headers: {
-                    'api-key': process.env.BREVO_API_KEY.trim(),
+                    'api-key': brevoKey,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -225,7 +261,7 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
             });
             const data = await brevoRes.json();
             if (brevoRes.ok) {
-                console.log(`[EmailService Success] Brevo email sent successfully! MessageID: ${data.messageId}`);
+                console.log(`[EmailService Success] Brevo HTTPS email sent successfully! MessageID: ${data.messageId}`);
                 return { success: true, sent: true, messageId: data.messageId, devOtp: otp };
             }
             console.warn(`[EmailService Warning] Brevo API notice: ${JSON.stringify(data)}. Falling back to Gmail SMTP...`);
