@@ -372,9 +372,14 @@ const LoginPage = () => {
                                 </div>
 
                                 {devOtpNotice && (
-                                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-1">
-                                        <div className="font-bold flex items-center space-x-1.5 text-amber-400">
+                                    <div
+                                        onClick={() => setForgotOtp(devOtpNotice)}
+                                        className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-1 cursor-pointer hover:bg-amber-500/20 transition group"
+                                        title="Click to auto-fill OTP"
+                                    >
+                                        <div className="font-bold flex items-center justify-between text-amber-400">
                                             <span>🔑 Dev Test Mode Active</span>
+                                            <span className="text-[10px] bg-amber-500/20 group-hover:bg-amber-500/30 px-2 py-0.5 rounded text-amber-300 transition">Click to Autofill</span>
                                         </div>
                                         <p>Your OTP Code: <strong className="font-mono text-base text-amber-300 tracking-widest">{devOtpNotice}</strong></p>
                                     </div>

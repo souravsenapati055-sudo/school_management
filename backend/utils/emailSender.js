@@ -12,14 +12,16 @@ function createTransporter() {
     if (rawUser && rawPass) {
         const cleanPass = rawPass.trim().replace(/\s+/g, '');
         return nodemailer.createTransport({
-            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true, // Direct SSL on port 465 works reliably on cloud platforms like Railway
             auth: {
                 user: rawUser,
                 pass: cleanPass
             },
-            connectionTimeout: 6000,
-            greetingTimeout: 6000,
-            socketTimeout: 6000
+            connectionTimeout: 15000,
+            greetingTimeout: 15000,
+            socketTimeout: 15000
         });
     }
 
@@ -32,9 +34,9 @@ function createTransporter() {
                 user: process.env.SMTP_USER.trim(),
                 pass: (process.env.SMTP_PASS || '').trim()
             },
-            connectionTimeout: 6000,
-            greetingTimeout: 6000,
-            socketTimeout: 6000
+            connectionTimeout: 15000,
+            greetingTimeout: 15000,
+            socketTimeout: 15000
         });
     }
 
@@ -122,9 +124,9 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
             html: htmlContent
         };
 
-        // 6 second timeout race promise
+        // 15 second timeout race promise for cloud networks
         const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('SMTP connection timed out after 6 seconds')), 6000);
+            setTimeout(() => reject(new Error('SMTP connection timed out after 15 seconds')), 15000);
         });
 
         const info = await Promise.race([
