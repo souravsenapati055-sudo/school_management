@@ -160,14 +160,51 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
                 console.log(`[EmailService Success] Resend email sent successfully! ID: ${data.id}`);
                 return { success: true, sent: true, messageId: data.id, devOtp: otp };
             }
-            console.warn(`[EmailService Warning] Resend API error: ${JSON.stringify(data)}`);
-            if (data && data.message) {
-                return {
-                    success: true,
-                    sent: false,
-                    message: `Resend Notice: ${data.message}`,
-                    devOtp: otp
-                };
+            if (!resendRes.ok) {
+                console.warn(`[EmailService Warning] Resend API notice: ${JSON.stringify(data)}`);
+
+                // If in Resend testing mode, auto-reroute test email to owner address so developer receives actual email
+                if (data && data.message && data.message.includes('only send testing emails')) {
+                    const ownerMatch = data.message.match(/\(([^)]+)\)/);
+                    const ownerEmail = ownerMatch ? ownerMatch[1] : (process.env.GMAIL_USER || 'souravsenapati055@gmail.com');
+
+                    console.log(`[EmailService] Resend in testing mode. Rerouting test OTP email to owner address: ${ownerEmail}`);
+
+                    const retryResend = await fetch('https://api.resend.com/emails', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            from: 'Majuria Baispatra High School <onboarding@resend.dev>',
+                            to: [ownerEmail],
+                            subject: `[TESTING FOR: ${toEmail}] ${subject}`,
+                            html: htmlContent
+                        })
+                    });
+
+                    const retryData = await retryResend.json();
+                    if (retryResend.ok) {
+                        console.log(`[EmailService Success] Rerouted test OTP email sent to ${ownerEmail}! ID: ${retryData.id}`);
+                        return {
+                            success: true,
+                            sent: true,
+                            messageId: retryData.id,
+                            devOtp: otp,
+                            message: `OTP email sent to ${ownerEmail} (Resend testing mode reroute for ${toEmail})`
+                        };
+                    }
+                }
+
+                if (data && data.message) {
+                    return {
+                        success: true,
+                        sent: false,
+                        message: `Resend Notice: ${data.message}`,
+                        devOtp: otp
+                    };
+                }
             }
         } catch (rErr) {
             console.error(`[EmailService Error] Resend API failed: ${rErr.message}`);
@@ -178,6 +215,7 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
     if (process.env.BREVO_API_KEY) {
         try {
             console.log(`[EmailService] Attempting to send OTP via Brevo HTTPS API...`);
+            const senderEmail = process.env.GMAIL_USER || 'souravsenapati055@gmail.com';
             const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
                 method: 'POST',
                 headers: {
@@ -185,7 +223,7 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    sender: { name: 'Majuria Baispatra S.M High School', email: process.env.GMAIL_USER || 'no-reply@majpuriabaispatra.edu' },
+                    sender: { name: 'Majuria Baispatra S.M High School', email: senderEmail },
                     to: [{ email: toEmail }],
                     subject: subject,
                     htmlContent: htmlContent
@@ -197,6 +235,14 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
                 return { success: true, sent: true, messageId: data.messageId, devOtp: otp };
             }
             console.warn(`[EmailService Warning] Brevo API error: ${JSON.stringify(data)}`);
+            if (data && (data.message || data.code)) {
+                return {
+                    success: true,
+                    sent: false,
+                    message: `Brevo Notice: ${data.message || data.code}`,
+                    devOtp: otp
+                };
+            }
         } catch (bErr) {
             console.error(`[EmailService Error] Brevo API failed: ${bErr.message}`);
         }
