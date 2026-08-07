@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
     Plus, Search, UserPlus, Edit2, Trash2, X, 
-    CheckCircle2, GraduationCap, Filter, Eye, Mail, Printer, TrendingUp 
+    CheckCircle2, GraduationCap, Filter, Eye, Mail, Printer, TrendingUp, AlertTriangle
 } from 'lucide-react';
 import API from '../../services/api';
 import Toast from '../../components/Toast';
@@ -16,6 +16,7 @@ const StudentManagement = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingStudent, setEditingStudent] = useState(null);
     const [toast, setToast] = useState(null);
+    const [rollConflictModal, setRollConflictModal] = useState(null);
 
     // Promote Modal State
     const [promotingStudent, setPromotingStudent] = useState(null);
@@ -31,6 +32,44 @@ const StudentManagement = () => {
         age: '', gender: 'Male', father_name: '', mother_name: '',
         address: '', mobile_number: '', email: '', admission_number: '', dob: '', password: ''
     });
+
+    const suggestNextRollNumber = (cls, sec) => {
+        const matching = students.filter(s => s.class_name === cls && s.section_name === sec);
+        if (matching.length === 0) return 1;
+        const rolls = matching.map(s => Number(s.roll_number) || 0);
+        return Math.max(...rolls, 0) + 1;
+    };
+
+    const openCreateModal = () => {
+        resetForm();
+        const defaultCls = 'Class 8';
+        const defaultSec = 'A';
+        const nextRoll = suggestNextRollNumber(defaultCls, defaultSec);
+        setFormData({
+            name: '', roll_number: nextRoll, class_name: defaultCls, section_name: defaultSec,
+            age: '', gender: 'Male', father_name: '', mother_name: '',
+            address: '', mobile_number: '', email: '', admission_number: '', dob: '', password: ''
+        });
+        setIsCreateModalOpen(true);
+    };
+
+    const handleClassChange = (newCls) => {
+        if (!editingStudent) {
+            const nextRoll = suggestNextRollNumber(newCls, formData.section_name);
+            setFormData(prev => ({ ...prev, class_name: newCls, roll_number: nextRoll }));
+        } else {
+            setFormData(prev => ({ ...prev, class_name: newCls }));
+        }
+    };
+
+    const handleSectionChange = (newSec) => {
+        if (!editingStudent) {
+            const nextRoll = suggestNextRollNumber(formData.class_name, newSec);
+            setFormData(prev => ({ ...prev, section_name: newSec, roll_number: nextRoll }));
+        } else {
+            setFormData(prev => ({ ...prev, section_name: newSec }));
+        }
+    };
 
     const fetchStudents = async () => {
         setLoading(true);
@@ -104,7 +143,19 @@ const StudentManagement = () => {
             resetForm();
             fetchStudents();
         } catch (err) {
-            setToast({ type: 'error', message: err.response?.data?.message || 'Error saving student' });
+            const errData = err.response?.data;
+            if (errData?.inUse) {
+                setRollConflictModal({
+                    existingStudent: errData.existingStudent,
+                    usedRoll: errData.usedRoll,
+                    suggestedRoll: errData.suggestedRoll,
+                    className: formData.class_name,
+                    sectionName: formData.section_name,
+                    message: errData.message
+                });
+            } else {
+                setToast({ type: 'error', message: errData?.message || 'Error saving student' });
+            }
         }
     };
 
@@ -198,7 +249,7 @@ const StudentManagement = () => {
                         <span>Print Student Directory</span>
                     </button>
                     <button
-                        onClick={() => { resetForm(); setIsCreateModalOpen(true); }}
+                        onClick={openCreateModal}
                         className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm shadow-md shadow-brand-500/20 transition"
                     >
                         <UserPlus className="w-4 h-4" />
@@ -457,7 +508,7 @@ const StudentManagement = () => {
                                     <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Class *</label>
                                     <select
                                         value={formData.class_name}
-                                        onChange={(e) => setFormData({ ...formData, class_name: e.target.value })}
+                                        onChange={(e) => handleClassChange(e.target.value)}
                                         className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none"
                                     >
                                         {Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`).map((c) => (
@@ -470,7 +521,7 @@ const StudentManagement = () => {
                                     <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Section *</label>
                                     <select
                                         value={formData.section_name}
-                                        onChange={(e) => setFormData({ ...formData, section_name: e.target.value })}
+                                        onChange={(e) => handleSectionChange(e.target.value)}
                                         className="w-full px-3.5 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none"
                                     >
                                         {['A', 'B', 'C', 'D'].map((s) => (
@@ -626,6 +677,66 @@ const StudentManagement = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Roll Number Conflict Warning Popup Modal */}
+            {rollConflictModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-amber-200 dark:border-amber-900/50 space-y-5 text-center relative">
+                        <button
+                            type="button"
+                            onClick={() => setRollConflictModal(null)}
+                            className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-white transition"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center shadow-inner">
+                            <AlertTriangle className="w-7 h-7" />
+                        </div>
+
+                        <div className="space-y-2">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Roll Number Already In Use</h3>
+                            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                                Roll Number <strong className="text-amber-600 dark:text-amber-400 font-mono text-sm">#{rollConflictModal.usedRoll}</strong> is already assigned in <strong className="text-gray-900 dark:text-white">{rollConflictModal.className} - Section {rollConflictModal.sectionName}</strong> to:
+                            </p>
+                            <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 text-xs font-semibold text-amber-900 dark:text-amber-200 flex items-center justify-center space-x-2">
+                                <span>👤 {rollConflictModal.existingStudent}</span>
+                                <span>•</span>
+                                <span>Roll #{rollConflictModal.usedRoll}</span>
+                            </div>
+                        </div>
+
+                        <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/50 text-xs text-blue-900 dark:text-blue-200 space-y-1">
+                            <p className="font-medium">Recommended Next Available Roll Number:</p>
+                            <p className="text-lg font-black font-mono text-blue-600 dark:text-blue-400">
+                                Roll Number #{rollConflictModal.suggestedRoll}
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setFormData({ ...formData, roll_number: rollConflictModal.suggestedRoll });
+                                    setRollConflictModal(null);
+                                }}
+                                className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-600/20 transition flex items-center justify-center space-x-1.5"
+                            >
+                                <CheckCircle2 className="w-4 h-4" />
+                                <span>Use Roll #{rollConflictModal.suggestedRoll}</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setRollConflictModal(null)}
+                                className="w-full py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold text-xs transition"
+                            >
+                                Change Manually
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -77,9 +77,18 @@ const createStudent = async (req, res) => {
             [class_name, section_name, roll_number]
         );
         if (existingRoll.length > 0) {
+            const [maxRollRow] = await query(
+                'SELECT MAX(roll_number) as maxRoll FROM students WHERE class_name = ? AND section_name = ?',
+                [class_name, section_name]
+            );
+            const suggestedRoll = (maxRollRow[0]?.maxRoll || maxRollRow[0]?.['MAX(roll_number)'] || 0) + 1;
             return res.status(400).json({
                 success: false,
-                message: `Roll Number #${roll_number} is already assigned to '${existingRoll[0].name}' in ${class_name} - Section ${section_name}. Roll numbers must be unique per section.`
+                inUse: true,
+                existingStudent: existingRoll[0].name,
+                usedRoll: roll_number,
+                suggestedRoll,
+                message: `Roll Number #${roll_number} is already assigned to '${existingRoll[0].name}' in ${class_name} - Section ${section_name}. Next available roll number is #${suggestedRoll}.`
             });
         }
 
@@ -181,9 +190,18 @@ const updateStudent = async (req, res) => {
                 [class_name, section_name, roll_number, userId]
             );
             if (existingRoll.length > 0) {
+                const [maxRollRow] = await query(
+                    'SELECT MAX(roll_number) as maxRoll FROM students WHERE class_name = ? AND section_name = ?',
+                    [class_name, section_name]
+                );
+                const suggestedRoll = (maxRollRow[0]?.maxRoll || maxRollRow[0]?.['MAX(roll_number)'] || 0) + 1;
                 return res.status(400).json({
                     success: false,
-                    message: `Roll Number #${roll_number} is already assigned to '${existingRoll[0].name}' in ${class_name} - Section ${section_name}.`
+                    inUse: true,
+                    existingStudent: existingRoll[0].name,
+                    usedRoll: roll_number,
+                    suggestedRoll,
+                    message: `Roll Number #${roll_number} is already assigned to '${existingRoll[0].name}' in ${class_name} - Section ${section_name}. Next available roll number is #${suggestedRoll}.`
                 });
             }
         }
