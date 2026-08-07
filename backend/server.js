@@ -63,7 +63,19 @@ app.get('/api/setup-db', async (req, res) => {
     }
 });
 
-// Global 404 Handler
+const fs = require('fs');
+
+// Serve Static Frontend if built in production
+const frontendDistPath = path.join(__dirname, '../frontend/dist');
+if (fs.existsSync(frontendDistPath)) {
+    app.use(express.static(frontendDistPath));
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api')) return next();
+        res.sendFile(path.join(frontendDistPath, 'index.html'));
+    });
+}
+
+// Global 404 Handler for API routes
 app.use((req, res, next) => {
     res.status(404).json({ success: false, message: 'API Route not found' });
 });
