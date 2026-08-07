@@ -206,7 +206,7 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
     }
 
     // Priority 0.5: Brevo API (HTTPS Port 443 - Never blocked on Railway)
-    if (process.env.BREVO_API_KEY) {
+    if (process.env.BREVO_API_KEY && process.env.BREVO_API_KEY.trim()) {
         try {
             console.log(`[EmailService] Attempting to send OTP via Brevo HTTPS API...`);
             const senderEmail = process.env.GMAIL_USER || 'souravsenapati055@gmail.com';
@@ -228,15 +228,7 @@ const sendOTPEmail = async ({ toEmail, userName, userId, otp }) => {
                 console.log(`[EmailService Success] Brevo email sent successfully! MessageID: ${data.messageId}`);
                 return { success: true, sent: true, messageId: data.messageId, devOtp: otp };
             }
-            console.warn(`[EmailService Warning] Brevo API error: ${JSON.stringify(data)}`);
-            if (data && (data.message || data.code)) {
-                return {
-                    success: true,
-                    sent: false,
-                    message: `Brevo Notice: ${data.message || data.code}`,
-                    devOtp: otp
-                };
-            }
+            console.warn(`[EmailService Warning] Brevo API notice: ${JSON.stringify(data)}. Falling back to Gmail SMTP...`);
         } catch (bErr) {
             console.error(`[EmailService Error] Brevo API failed: ${bErr.message}`);
         }
