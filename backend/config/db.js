@@ -486,109 +486,182 @@ async function initSqliteTables() {
 async function seedDatabaseIfEmpty() {
     try {
         const [users] = await query('SELECT COUNT(*) as cnt FROM users');
-        const count = users[0].cnt || users[0]['COUNT(*)'];
-        if (count > 0) return;
-
-        console.log('Seeding initial data...');
+        const count = users[0].cnt || users[0]['COUNT(*)'] || 0;
         
-        // Hash passwords for seed users
-        const officerPass = await bcrypt.hash('OFFICER01', 10);
-        const rahulPass = await bcrypt.hash('RAHULT01', 10);
-        const anitaPass = await bcrypt.hash('ANITAT02', 10);
-        const souravPass = await bcrypt.hash('SOURAV849', 10);
-        const priyaPass = await bcrypt.hash('PRIYA812', 10);
-        const aravPass = await bcrypt.hash('ARAV805', 10);
+        if (count === 0) {
+            console.log('Seeding initial admin and teacher users...');
+            const officerPass = await bcrypt.hash('OFFICER01', 10);
+            const rahulPass = await bcrypt.hash('RAHULT01', 10);
+            const anitaPass = await bcrypt.hash('ANITAT02', 10);
 
-        // Users
-        await query(`INSERT INTO users (user_id, password_hash, role, first_login) VALUES 
-            ('OFFICER01', ?, 'Officer', 0),
-            ('RAHULT01', ?, 'Teacher', 1),
-            ('ANITAT02', ?, 'Teacher', 1),
-            ('SOURAV849', ?, 'Student', 1),
-            ('PRIYA812', ?, 'Student', 1),
-            ('ARAV805', ?, 'Student', 1)`, 
-            [officerPass, rahulPass, anitaPass, souravPass, priyaPass, aravPass]);
+            await query(`INSERT INTO users (user_id, password_hash, role, first_login) VALUES 
+                ('OFFICER01', ?, 'Officer', 0),
+                ('RAHULT01', ?, 'Teacher', 1),
+                ('ANITAT02', ?, 'Teacher', 1)`, 
+                [officerPass, rahulPass, anitaPass]);
 
-        // Officers
-        await query(`INSERT INTO officers (user_id, name, email, mobile, designation) VALUES
-            ('OFFICER01', 'Principal S. K. Sharma', 'admin@greenwoodschool.edu', '9876543210', 'Headmaster / Admin')`);
+            await query(`INSERT INTO officers (user_id, name, email, mobile, designation) VALUES
+                ('OFFICER01', 'Principal S. K. Sharma', 'admin@greenwoodschool.edu', '9876543210', 'Headmaster / Admin')`);
 
-        // Teachers
-        await query(`INSERT INTO teachers (user_id, name, subject, designation, mobile, email, qualification) VALUES
-            ('RAHULT01', 'Rahul Verma', 'Mathematics', 'Senior Mathematics Lecturer', '9812345678', 'rahul.v@greenwood.edu', 'M.Sc. Mathematics, B.Ed.'),
-            ('ANITAT02', 'Anita Roy', 'English', 'Head of English Dept.', '9823456789', 'anita.r@greenwood.edu', 'M.A. English Literature')`);
+            await query(`INSERT INTO teachers (user_id, name, subject, designation, mobile, email, qualification) VALUES
+                ('RAHULT01', 'Rahul Verma', 'Mathematics', 'Senior Mathematics Lecturer', '9812345678', 'rahul.v@greenwood.edu', 'M.Sc. Mathematics, B.Ed.'),
+                ('ANITAT02', 'Anita Roy', 'English', 'Head of English Dept.', '9823456789', 'anita.r@greenwood.edu', 'M.A. English Literature')`);
 
-        // Students
-        await query(`INSERT INTO students (user_id, name, roll_number, class_name, section_name, age, gender, father_name, mother_name, address, mobile_number, email, admission_number, dob) VALUES
-            ('SOURAV849', 'SOURAV SENAPATI', 49, 'Class 8', 'A', 14, 'Male', 'Rajesh Senapati', 'Sunita Senapati', '12 Park Street, City Center', '9988776655', 'sourav@student.edu', 'ADM20240849', '2011-04-15'),
-            ('PRIYA812', 'PRIYA SHARMA', 12, 'Class 8', 'A', 13, 'Female', 'Manoj Sharma', 'Anita Sharma', '45 Lake View Road', '9977665544', 'priya@student.edu', 'ADM20240812', '2011-08-20'),
-            ('ARAV805', 'ARAV PATEL', 5, 'Class 8', 'B', 14, 'Male', 'Vikram Patel', 'Meena Patel', '88 Green Avenue', '9966554433', 'arav@student.edu', 'ADM20240805', '2011-02-10')`);
-
-        // Classes
-        const classNames = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
-        for (const cls of classNames) {
-            await query(`INSERT INTO classes (class_name) VALUES (?)`, [cls]);
+            await query(`INSERT INTO notices (title, content, target_audience, author_name) VALUES
+                ('Annual Sports Day 2026', 'The Annual Sports Meet will be held on 25th August. Interested students register with your sports teacher.', 'All', 'Principal S. K. Sharma'),
+                ('Half Yearly Exam Schedule', 'Half Yearly Examinations start from 15th September. Detailed datesheet is available on notice board.', 'Student', 'Officer')`);
         }
 
-        // Sections
-        await query(`INSERT INTO sections (class_name, section_name) VALUES 
-            ('Class 8', 'A'), ('Class 8', 'B'), ('Class 8', 'C'), ('Class 10', 'A'), ('Class 10', 'B')`);
-
-        // Master Subjects
-        const subjects = ['English', 'Bengali', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Computer'];
-        for (const sub of subjects) {
-            await query(`INSERT INTO subjects (name, code) VALUES (?, ?)`, [sub, sub.substring(0, 4).toUpperCase()]);
-        }
-
-        // Class Subjects for Class 8
-        for (const sub of subjects) {
-            await query(`INSERT INTO class_subjects (class_name, subject_name) VALUES ('Class 8', ?)`, [sub]);
-        }
-
-        // Exams
-        const exams = ['Unit Test 1', 'Half Yearly Exam', 'Unit Test 2', 'Annual Exam'];
-        for (const ex of exams) {
-            await query(`INSERT INTO exams (name, session) VALUES (?, '2025-2026')`, [ex]);
-        }
-
-        // Notices
-        await query(`INSERT INTO notices (title, content, target_audience, author_name) VALUES
-            ('Annual Sports Day 2025', 'The Annual Sports Meet will be held on 25th August. Interested students register with your sports teacher.', 'All', 'Principal S. K. Sharma'),
-            ('Half Yearly Exam Schedule', 'Half Yearly Examinations start from 15th September. Detailed datesheet is available on notice board.', 'Student', 'Officer'),
-            ('Staff Meeting Notice', 'All teachers are requested to attend the academic review meeting in Conference Room B at 3 PM today.', 'Teacher', 'Officer')`);
-
-        // Sample Result for SOURAV849
-        const [res] = await query(`INSERT INTO results (exam_name, class_name, section_name, student_id, total_marks, percentage, grade, remarks) VALUES
-            ('Half Yearly Exam', 'Class 8', 'A', 'SOURAV849', 825.00, 91.67, 'A+', 'Outstanding performance! Keep up the good work.')`);
-
-        const resultId = res.insertId || 1;
-        const marksData = [
-            ['English', 88.00], ['Bengali', 92.00], ['Mathematics', 98.00],
-            ['Physics', 94.00], ['Chemistry', 90.00], ['Biology', 86.00],
-            ['History', 89.00], ['Geography', 93.00], ['Computer', 95.00]
-        ];
-
-        for (const [sub, marks] of marksData) {
-            await query(`INSERT INTO result_details (result_id, subject_name, marks_obtained, max_marks) VALUES (?, ?, ?, 100.00)`, [resultId, sub, marks]);
-        }
-
-        // Attendance records
-        const [att1] = await query(`INSERT INTO attendance (class_name, section_name, date, teacher_id) VALUES ('Class 8', 'A', '2026-08-01', 'RAHULT01')`);
-        const [att2] = await query(`INSERT INTO attendance (class_name, section_name, date, teacher_id) VALUES ('Class 8', 'A', '2026-08-02', 'RAHULT01')`);
-        
-        await query(`INSERT INTO attendance_details (attendance_id, student_id, status) VALUES 
-            (?, 'SOURAV849', 'Present'), (?, 'PRIYA812', 'Present'),
-            (?, 'SOURAV849', 'Present'), (?, 'PRIYA812', 'Absent')`, 
-            [att1.insertId || 1, att1.insertId || 1, att2.insertId || 2, att2.insertId || 2]);
-
-        // Homework
-        await query(`INSERT INTO homework (class_name, section_name, subject_name, title, description, due_date, teacher_id) VALUES
-            ('Class 8', 'A', 'Mathematics', 'Quadratic Equations Ex 4.2', 'Solve questions 1 through 15 in homework notebook.', '2026-08-10', 'RAHULT01'),
-            ('Class 8', 'A', 'English', 'Essay on Renewable Energy', 'Write 300 words essay on benefits of solar and wind energy.', '2026-08-12', 'ANITAT02')`);
-
-        console.log('Database initial seed complete!');
+        // Always check and auto-seed 100 students if missing or less than 20
+        await seed100StudentsIfMissing();
     } catch (err) {
         console.error('Error seeding database:', err.message);
+    }
+}
+
+async function seed100StudentsIfMissing() {
+    try {
+        const [rows] = await query('SELECT COUNT(*) as cnt FROM students');
+        const count = rows[0]?.cnt || rows[0]?.['COUNT(*)'] || 0;
+
+        if (count >= 20) {
+            return;
+        }
+
+        console.log('Seeding 100 students and full exam results into database...');
+
+        const firstNames = [
+            'Sourav', 'Priya', 'Rahul', 'Anita', 'Arav', 'Sneha', 'Amit', 'Pooja', 'Rohan', 'Neha',
+            'Arpan', 'Ishita', 'Vikram', 'Ananya', 'Rajesh', 'Sumi', 'Deepak', 'Kavita', 'Sanjay', 'Meera',
+            'Siddharth', 'Diya', 'Karan', 'Riya', 'Abhishek', 'Shreya', 'Manish', 'Preeti', 'Aditya', 'Swati',
+            'Gaurav', 'Nisha', 'Varun', 'Tanvi', 'Kushal', 'Payal', 'Subhash', 'Mousumi', 'Debasmita', 'Joy'
+        ];
+
+        const lastNames = [
+            'Senapati', 'Sharma', 'Patel', 'Roy', 'Verma', 'Das', 'Banerjee', 'Malhotra', 'Gupta', 'Mukherjee',
+            'Choudhury', 'Chatterjee', 'Ghosh', 'Dutta', 'Sarkar', 'Mishra', 'Singh', 'Kumar', 'Bhowmick', 'Pal'
+        ];
+
+        const classList = [
+            'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6',
+            'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'
+        ];
+
+        const sectionList = ['A', 'B', 'C', 'D'];
+        const examList = ['Annual Exam 2026', 'Half Yearly Exam 2025', 'Unit Test 1'];
+        const subjectList = [
+            'English', 'Bengali', 'Mathematics', 'Physics',
+            'Chemistry', 'Biology', 'History', 'Geography', 'Computer'
+        ];
+
+        for (const sub of subjectList) {
+            try { await query('INSERT INTO subjects (name, code) VALUES (?, ?)', [sub, sub.substring(0, 4).toUpperCase()]); } catch (e) {}
+            for (const cls of classList) {
+                try { await query('INSERT INTO class_subjects (class_name, subject_name) VALUES (?, ?)', [cls, sub]); } catch (e) {}
+            }
+        }
+
+        for (const cls of classList) {
+            try { await query('INSERT INTO classes (class_name) VALUES (?)', [cls]); } catch (e) {}
+            for (const sec of sectionList) {
+                try { await query('INSERT INTO sections (class_name, section_name) VALUES (?, ?)', [cls, sec]); } catch (e) {}
+            }
+        }
+
+        for (const ex of examList) {
+            try { await query('INSERT INTO exams (name, session) VALUES (?, ?)', [ex, '2025-2026']); } catch (e) {}
+        }
+
+        for (let i = 1; i <= 100; i++) {
+            const fn = firstNames[(i - 1) % firstNames.length];
+            const ln = lastNames[(i - 1) % lastNames.length];
+            const fullName = `${fn} ${ln}`;
+            
+            const className = classList[(i - 1) % classList.length];
+            const sectionName = sectionList[(i - 1) % sectionList.length];
+            const rollNumber = Math.floor((i - 1) / (classList.length * sectionList.length)) + 1;
+
+            const classNum = className.match(/\d+/) ? className.match(/\d+/)[0] : '1';
+            const cleanFn = fn.replace(/[^a-zA-Z]/g, '').toUpperCase();
+            let baseUserId = `${cleanFn}${classNum}${rollNumber}`;
+            
+            let userId = baseUserId;
+            let suffix = 1;
+            while (true) {
+                const [exist] = await query('SELECT user_id FROM users WHERE user_id = ?', [userId]);
+                if (exist.length === 0) break;
+                userId = `${baseUserId}${suffix++}`;
+            }
+
+            const plainPassword = `${cleanFn}${classNum}${rollNumber}${sectionName}`;
+            const passwordHash = await bcrypt.hash(plainPassword, 4);
+
+            await query(`INSERT INTO users (user_id, password_hash, role, first_login) VALUES (?, ?, 'Student', 1)`, [
+                userId, passwordHash
+            ]);
+
+            const age = Math.min(18, Math.max(6, parseInt(classNum) + 5));
+            const gender = (i % 2 === 0) ? 'Female' : 'Male';
+            const fatherName = `Rajesh ${ln}`;
+            const motherName = `Sunita ${ln}`;
+            const mobileNumber = `98${String(10000000 + i).padStart(8, '0')}`;
+            const email = `${cleanFn.toLowerCase()}${i}@student.edu`;
+            const admissionNo = `ADM2026${String(i).padStart(4, '0')}`;
+            const dob = `20${String(15 - Math.min(12, parseInt(classNum))).padStart(2, '0')}-05-15`;
+
+            await query(`INSERT INTO students (
+                user_id, name, roll_number, class_name, section_name, age, gender,
+                father_name, mother_name, address, mobile_number, email, admission_number, dob
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+                userId, fullName, rollNumber, className, sectionName, age, gender,
+                fatherName, motherName, `House No. ${i}, Main Road`, mobileNumber, email, admissionNo, dob
+            ]);
+
+            for (const examName of examList) {
+                const baseScorePercent = Math.max(45, Math.min(98, 98 - (i * 0.48) + (Math.sin(i) * 5)));
+                let totalMarks = 0;
+                const subjectMarksList = [];
+
+                for (const sub of subjectList) {
+                    const variation = (Math.sin(i * sub.length) * 8);
+                    const mark = Math.max(35, Math.min(100, Math.round(baseScorePercent + variation)));
+                    totalMarks += mark;
+                    subjectMarksList.push({ subject_name: sub, marks_obtained: mark, max_marks: 100 });
+                }
+
+                const totalMaxMarks = subjectList.length * 100;
+                const percentage = parseFloat(((totalMarks / totalMaxMarks) * 100).toFixed(2));
+                
+                let grade = 'F';
+                if (percentage >= 90) grade = 'A+';
+                else if (percentage >= 75) grade = 'A';
+                else if (percentage >= 60) grade = 'B';
+                else if (percentage >= 33) grade = 'C';
+
+                let remarks = 'Good effort and steady progress.';
+                if (percentage >= 90) remarks = 'Outstanding academic performance! Class Topper.';
+                else if (percentage >= 75) remarks = 'Excellent result, keep aiming high.';
+                else if (percentage < 50) remarks = 'Needs additional practice and guidance.';
+
+                try {
+                    const [resMaster] = await query(`INSERT INTO results (
+                        exam_name, class_name, section_name, student_id, total_marks, percentage, grade, remarks
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
+                        examName, className, sectionName, userId, totalMarks, percentage, grade, remarks
+                    ]);
+
+                    const resultId = resMaster.insertId;
+                    for (const sm of subjectMarksList) {
+                        await query(`INSERT INTO result_details (result_id, subject_name, marks_obtained, max_marks) VALUES (?, ?, ?, ?)`, [
+                            resultId, sm.subject_name, sm.marks_obtained, sm.max_marks
+                        ]);
+                    }
+                } catch (err) {}
+            }
+        }
+        console.log('Auto-seeded 100 students and exam records successfully!');
+    } catch (err) {
+        console.error('seed100StudentsIfMissing error:', err.message);
     }
 }
 
