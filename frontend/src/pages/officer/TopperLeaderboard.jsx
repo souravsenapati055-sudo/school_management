@@ -3,10 +3,14 @@ import {
     Trophy, Printer, Download, Search, Filter, Award, 
     CheckCircle2, XCircle, Users, BarChart2, Eye, X, GraduationCap, Sparkles
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import API from '../../services/api';
 import Toast from '../../components/Toast';
 
 const TopperLeaderboard = () => {
+    const { user } = useAuth();
+    const apiPrefix = user?.role === 'Teacher' ? '/teacher' : '/officer';
+
     const [toppers, setToppers] = useState([]);
     const [stats, setStats] = useState({
         totalStudents: 0,
@@ -33,8 +37,8 @@ const TopperLeaderboard = () => {
     const fetchClassesAndExams = async () => {
         try {
             const [resCls, resEx] = await Promise.all([
-                API.get('/officer/classes'),
-                API.get('/officer/exams')
+                API.get(`${apiPrefix}/classes`),
+                API.get(`${apiPrefix}/exams`)
             ]);
             if (resCls.data.success) setClasses(resCls.data.classes || []);
             if (resEx.data.success) setExams(resEx.data.exams || []);
@@ -46,7 +50,7 @@ const TopperLeaderboard = () => {
     const fetchTopperData = async () => {
         setLoading(true);
         try {
-            let url = `/officer/toppers?class_name=${encodeURIComponent(filterClass)}&section_name=${encodeURIComponent(filterSection)}&exam_name=${encodeURIComponent(filterExam)}`;
+            let url = `${apiPrefix}/toppers?class_name=${encodeURIComponent(filterClass)}&section_name=${encodeURIComponent(filterSection)}&exam_name=${encodeURIComponent(filterExam)}`;
             if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
 
             const res = await API.get(url);
@@ -73,7 +77,7 @@ const TopperLeaderboard = () => {
     const handleDownloadStudentPDF = async (userId, examName) => {
         setDownloadingId(userId);
         try {
-            const res = await API.get(`/officer/student-result-pdf?user_id=${encodeURIComponent(userId)}&exam_name=${encodeURIComponent(examName)}`, {
+            const res = await API.get(`${apiPrefix}/student-result-pdf?user_id=${encodeURIComponent(userId)}&exam_name=${encodeURIComponent(examName)}`, {
                 responseType: 'blob'
             });
 

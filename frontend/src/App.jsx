@@ -76,6 +76,7 @@ function App() {
           <Route element={<ProtectedRoute allowedRoles={['Teacher']} />}>
             <Route element={<DashboardLayout />}>
               <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
+              <Route path="/teacher/toppers" element={<TopperLeaderboard />} />
               <Route path="/teacher/attendance" element={<AttendanceModule />} />
               <Route path="/teacher/homework" element={<HomeworkModule />} />
               <Route path="/teacher/results" element={<ResultUploadModule />} />

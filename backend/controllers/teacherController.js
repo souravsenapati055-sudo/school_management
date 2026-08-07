@@ -230,6 +230,159 @@ const uploadStudentMarks = async (req, res) => {
     }
 };
 
+// 7. TOPPER LEADERBOARD FOR TEACHER
+const getTopperStudents = async (req, res) => {
+    try {
+        const { class_name, section_name, exam_name, search } = req.query;
+
+        let sql = `
+            SELECT 
+                r.id as result_id,
+                r.student_id,
+                r.exam_name,
+                r.total_marks,
+                r.percentage,
+                r.grade,
+                r.remarks,
+                s.name as student_name,
+                s.roll_number,
+                s.class_name,
+                s.section_name,
+                s.email,
+                s.admission_number,
+                s.mobile_number
+            FROM results r
+            JOIN students s ON LOWER(r.student_id) = LOWER(s.user_id)
+            WHERE 1=1
+        `;
+        let params = [];
+
+        if (class_name && class_name !== 'All') {
+            sql += ' AND s.class_name = ?';
+            params.push(class_name);
+        }
+        if (section_name && section_name !== 'All') {
+            sql += ' AND s.section_name = ?';
+            params.push(section_name);
+        }
+        if (exam_name && exam_name !== 'All') {
+            sql += ' AND LOWER(r.exam_name) = LOWER(?)';
+            params.push(exam_name);
+        }
+        if (search) {
+            sql += ' AND (s.name LIKE ? OR s.user_id LIKE ? OR CAST(s.roll_number AS CHAR) LIKE ?)';
+            const pattern = `%${search}%`;
+            params.push(pattern, pattern, pattern);
+        }
+
+        sql += ' ORDER BY r.percentage DESC, r.total_marks DESC, s.roll_number ASC';
+
+        const [toppers] = await query(sql, params);
+
+        let rank = 1;
+        for (let st of toppers) {
+            st.rank = rank++;
+            const [details] = await query('SELECT subject_name, marks_obtained, max_marks FROM result_details WHERE result_id = ?', [st.result_id]);
+            st.subject_details = details || [];
+        }
+
+        const totalStudents = toppers.length;
+        let highestPercentage = totalStudents > 0 ? toppers[0].percentage : 0;
+        let lowestPercentage = totalStudents > 0 ? toppers[totalStudents - 1].percentage : 0;
+        let sumPercentage = toppers.reduce((acc, t) => acc + (parseFloat(t.percentage) || 0), 0);
+        let classAvgPercentage = totalStudents > 0 ? parseFloat((sumPercentage / totalStudents).toFixed(1)) : 0;
+        let passCount = toppers.filter(t => t.grade !== 'F' && (parseFloat(t.percentage) || 0) >= 33).length;
+        let failCount = totalStudents - passCount;
+
+        return res.json({
+            success: true,
+            toppers,
+            stats: {
+                totalStudents,
+                highestPercentage,
+                lowestPercentage,
+                classAvgPercentage,
+                passCount,
+                failCount
+            }
+        });
+    } catch (err) {
+        console.error('Teacher getTopperStudents error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
+    }
+};
+
+const getClasses = async (req, res) => {
+    try {
+        const [classes] = await query('SELECT * FROM classes ORDER BY id ASC');
+        return res.json({ success: true, classes });
+    } catch (err) {
+        console.error('Teacher getClasses error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+const getExams = async (req, res) => {
+    try {
+        const [exams] = await query('SELECT * FROM exams ORDER BY id DESC');
+        return res.json({ success: true, exams });
+    } catch (err) {
+        console.error('Teacher getExams error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+const downloadStudentMarksheetPDFForTeacher = async (req, res) => {
+    try {
+        const { user_id, exam_name } = req.query;
+        if (!user_id) {
+            return res.status(400).json({ success: false, message: 'User ID is required' });
+        }
+
+        const [students] = await query('SELECT * FROM students WHERE LOWER(user_id) = LOWER(?)', [user_id]);
+        if (students.length === 0) {
+            return res.status(404).json({ success: false, message: 'Student profile not found' });
+        }
+        const student = students[0];
+
+        let sqlResult = 'SELECT * FROM results WHERE LOWER(student_id) = LOWER(?)';
+        let resultParams = [user_id];
+        if (exam_name && exam_name !== 'All') {
+            sqlResult += ' AND TRIM(LOWER(exam_name)) = TRIM(LOWER(?))';
+            resultParams.push(exam_name);
+        }
+        sqlResult += ' ORDER BY id DESC LIMIT 1';
+
+        const [results] = await query(sqlResult, resultParams);
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: `No result found for student: ${user_id}` });
+        }
+        const resultHeader = results[0];
+
+        const [subjectMarks] = await query('SELECT subject_name, marks_obtained, max_marks FROM result_details WHERE result_id = ?', [
+            resultHeader.id
+        ]);
+
+        const [attSummary] = await query(`
+            SELECT 
+                COUNT(*) as total_days,
+                SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as present_days
+            FROM attendance_details
+            WHERE LOWER(student_id) = LOWER(?)
+        `, [user_id]);
+
+        const totalDays = attSummary[0]?.total_days || 0;
+        const presentDays = attSummary[0]?.present_days || 0;
+        const overallPercentage = totalDays > 0 ? parseFloat(((presentDays / totalDays) * 100).toFixed(1)) : 100.0;
+
+        const { generateMarksheetPDF } = require('../utils/pdfGenerator');
+        generateMarksheetPDF(student, resultHeader, subjectMarks, { overall_percentage: overallPercentage }, res);
+    } catch (err) {
+        console.error('downloadStudentMarksheetPDFForTeacher error:', err);
+        return res.status(500).json({ success: false, message: 'Internal server error: ' + err.message });
+    }
+};
+
 module.exports = {
     getStudentsForTeacher,
     submitAttendance,
@@ -237,5 +390,9 @@ module.exports = {
     createHomework,
     getHomeworkList,
     getConfiguredSubjectsForClass,
-    uploadStudentMarks
+    uploadStudentMarks,
+    getTopperStudents,
+    getClasses,
+    getExams,
+    downloadStudentMarksheetPDFForTeacher
 };

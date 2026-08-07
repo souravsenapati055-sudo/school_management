@@ -24,6 +24,7 @@ const Sidebar = () => {
         ],
         Teacher: [
             { label: 'Dashboard', path: '/teacher/dashboard', icon: LayoutDashboard },
+            { label: 'Topper Leaderboard', path: '/teacher/toppers', icon: Trophy },
             { label: 'Mark Attendance', path: '/teacher/attendance', icon: CheckSquare },
             { label: 'Homework & Notes', path: '/teacher/homework', icon: FileText },
             { label: 'Upload Results', path: '/teacher/results', icon: Award },
