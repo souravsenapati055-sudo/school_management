@@ -35,10 +35,14 @@ const login = async (req, res) => {
 
         const user = users[0];
 
-        // 2. Compare bcrypt password
-        const isMatch = await bcrypt.compare(password, user.password_hash);
+        // 2. Compare bcrypt password (supports case-insensitive match for default passwords)
+        const cleanPassword = password.trim();
+        let isMatch = await bcrypt.compare(cleanPassword, user.password_hash);
+        if (!isMatch && cleanPassword.toUpperCase() !== cleanPassword) {
+            isMatch = await bcrypt.compare(cleanPassword.toUpperCase(), user.password_hash);
+        }
         if (!isMatch) {
-            return res.status(401).json({ success: false, message: 'Invalid User ID or Password' });
+            return res.status(401).json({ success: false, message: 'Invalid Login Credentials (User ID / Admission ID or Password)' });
         }
 
         // 3. Fetch detailed profile based on role

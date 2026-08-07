@@ -522,7 +522,7 @@ async function seedDatabaseIfEmpty() {
 
 async function ensureSequentialRollNumbers() {
     try {
-        const { generateStudentAdmissionNumber } = require('../utils/idGenerator');
+        const { generateStudentAdmissionNumber, generateStudentDefaultPassword } = require('../utils/idGenerator');
         const [classes] = await query('SELECT DISTINCT class_name FROM students ORDER BY class_name ASC');
 
         for (const cls of classes) {
@@ -539,11 +539,13 @@ async function ensureSequentialRollNumbers() {
                 let roll = 1;
                 for (const st of studentsInSec) {
                     const newAdmNo = generateStudentAdmissionNumber(st.name, roll, sectionName, 2026);
+                    const newDefaultPass = generateStudentDefaultPassword(st.name, className, roll, sectionName);
+                    const newPassHash = await bcrypt.hash(newDefaultPass, 10);
                     const oldUserId = st.user_id;
 
                     await query(
-                        'UPDATE users SET user_id = ? WHERE LOWER(user_id) = LOWER(?)',
-                        [newAdmNo, oldUserId]
+                        'UPDATE users SET user_id = ?, password_hash = ? WHERE LOWER(user_id) = LOWER(?)',
+                        [newAdmNo, newPassHash, oldUserId]
                     );
                     await query(
                         'UPDATE students SET user_id = ?, roll_number = ?, admission_number = ? WHERE id = ?',
