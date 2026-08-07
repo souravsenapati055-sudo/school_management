@@ -270,28 +270,26 @@ const StudentManagement = () => {
                     <thead>
                         <tr className="bg-gray-200 border-b-2 border-gray-900 text-gray-900 uppercase font-black">
                             <th className="p-2 border border-gray-900 text-center">#</th>
-                            <th className="p-2 border border-gray-900">User ID</th>
+                            <th className="p-2 border border-gray-900">Admission ID / User ID</th>
                             <th className="p-2 border border-gray-900">Student Name</th>
                             <th className="p-2 border border-gray-900">Class & Sec</th>
                             <th className="p-2 border border-gray-900">Roll No</th>
                             <th className="p-2 border border-gray-900">Father's Name</th>
                             <th className="p-2 border border-gray-900">Mobile Number</th>
-                            <th className="p-2 border border-gray-900">Assigned Email / Gmail</th>
-                            <th className="p-2 border border-gray-900">Admission No</th>
+                            <th className="p-2 border border-gray-900">Assigned Email</th>
                         </tr>
                     </thead>
                     <tbody>
                         {students.map((st, index) => (
                             <tr key={st.user_id} className="border-b border-gray-400 font-sans">
                                 <td className="p-2 border border-gray-400 text-center font-mono font-bold">{index + 1}</td>
-                                <td className="p-2 border border-gray-400 font-mono font-bold text-gray-900">{st.user_id}</td>
+                                <td className="p-2 border border-gray-400 font-mono font-bold text-gray-900">{st.admission_number || st.user_id}</td>
                                 <td className="p-2 border border-gray-400 font-bold text-gray-900">{st.name}</td>
                                 <td className="p-2 border border-gray-400 font-semibold">{st.class_name} - {st.section_name}</td>
                                 <td className="p-2 border border-gray-400 font-mono font-bold">#{st.roll_number}</td>
                                 <td className="p-2 border border-gray-400">{st.father_name || 'N/A'}</td>
                                 <td className="p-2 border border-gray-400 font-mono font-bold">{st.mobile_number || 'N/A'}</td>
                                 <td className="p-2 border border-gray-400 text-gray-800">{st.email || 'N/A'}</td>
-                                <td className="p-2 border border-gray-400 font-mono">{st.admission_number || 'N/A'}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -315,8 +313,7 @@ const StudentManagement = () => {
                     <table className="w-full text-left text-sm">
                         <thead className="bg-gray-50 dark:bg-gray-700/40 text-gray-500 dark:text-gray-400 font-semibold text-xs uppercase tracking-wider">
                             <tr>
-                                <th className="p-4">Admission ID / Login ID</th>
-                                <th className="p-4">User ID</th>
+                                <th className="p-4">Admission ID / User ID</th>
                                 <th className="p-4">Default Password</th>
                                 <th className="p-4">Student Name</th>
                                 <th className="p-4">Class & Sec</th>
@@ -331,9 +328,6 @@ const StudentManagement = () => {
                                 <tr key={st.user_id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition">
                                     <td className="p-4 font-mono font-black text-emerald-600 dark:text-emerald-400">
                                         {st.admission_number || st.user_id}
-                                    </td>
-                                    <td className="p-4 font-mono font-bold text-gray-600 dark:text-gray-400 text-xs">
-                                        {st.user_id}
                                     </td>
                                     <td className="p-4">
                                         <span className="px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-mono text-xs font-bold border border-amber-200/60 dark:border-amber-800/40">

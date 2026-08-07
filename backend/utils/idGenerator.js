@@ -7,14 +7,14 @@ function parseClassNum(className) {
     return match ? match[0] : className.replace(/\s+/g, '');
 }
 
-// Generate Student ID: UPPERCASE(FirstName + ClassNum + RollNumber)
-// Auto-append numeric suffix if duplicate exists (SOURAV849 -> SOURAV8491)
-async function generateStudentId(name, className, rollNumber) {
-    const firstName = name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase();
-    const classNum = parseClassNum(className);
-    const roll = String(rollNumber).trim();
+// Generate Student ID (which is also the Admission ID): UPPERCASE(FirstName + Year + RollNumber + Section)
+// Example: Sourav, Roll 49, Section A, Year 2026 -> SOURAV202649A
+async function generateStudentId(name, className, rollNumber, sectionName, year = 2026) {
+    const firstName = name ? name.trim().split(' ')[0].replace(/[^a-zA-Z]/g, '').toUpperCase() : 'STUDENT';
+    const roll = rollNumber !== undefined && rollNumber !== null ? String(rollNumber).trim() : '1';
+    const section = sectionName ? String(sectionName).trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase() : 'A';
 
-    let baseId = `${firstName}${classNum}${roll}`.toUpperCase();
+    let baseId = `${firstName}${year}${roll}${section}`.toUpperCase();
     let candidateId = baseId;
     let counter = 1;
 

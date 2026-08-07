@@ -83,15 +83,15 @@ const createStudent = async (req, res) => {
             });
         }
 
-        // 2. Auto-generate Admission Number e.g. SOURAV202649A if not specified
+        // 2. Auto-generate Admission Number & User ID e.g. SOURAV202649A
         const currentYear = new Date().getFullYear();
         const autoAdmissionNo = generateStudentAdmissionNumber(name, roll_number, section_name, currentYear);
         const finalAdmissionNo = (admission_number && String(admission_number).trim() !== '') 
             ? String(admission_number).trim().toUpperCase() 
             : autoAdmissionNo;
 
-        // Auto-generate User ID e.g. SOURAV949 with collision protection
-        const generatedUserId = await generateStudentId(name, class_name, roll_number);
+        // User ID is identical to Admission ID (e.g. SOURAV202649A)
+        const generatedUserId = finalAdmissionNo;
 
         // Default password format: Name + Class Digit + Roll Number + Section (e.g. SOURAV949A)
         const defaultPassword = generateStudentDefaultPassword(name, class_name, roll_number, section_name);

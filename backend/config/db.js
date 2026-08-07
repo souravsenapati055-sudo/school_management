@@ -539,9 +539,15 @@ async function ensureSequentialRollNumbers() {
                 let roll = 1;
                 for (const st of studentsInSec) {
                     const newAdmNo = generateStudentAdmissionNumber(st.name, roll, sectionName, 2026);
+                    const oldUserId = st.user_id;
+
                     await query(
-                        'UPDATE students SET roll_number = ?, admission_number = ? WHERE id = ?',
-                        [roll, newAdmNo, st.id]
+                        'UPDATE users SET user_id = ? WHERE LOWER(user_id) = LOWER(?)',
+                        [newAdmNo, oldUserId]
+                    );
+                    await query(
+                        'UPDATE students SET user_id = ?, roll_number = ?, admission_number = ? WHERE id = ?',
+                        [newAdmNo, roll, newAdmNo, st.id]
                     );
                     roll++;
                 }
@@ -622,14 +628,14 @@ async function seed100StudentsIfMissing() {
 
             const classNum = className.match(/\d+/) ? className.match(/\d+/)[0] : '1';
             const cleanFn = fn.replace(/[^a-zA-Z]/g, '').toUpperCase();
-            let baseUserId = `${cleanFn}${classNum}${rollNumber}`;
             
-            let userId = baseUserId;
+            const admissionNo = `${cleanFn}2026${rollNumber}${sectionName}`;
+            let userId = admissionNo;
             let suffix = 1;
             while (true) {
                 const [exist] = await query('SELECT user_id FROM users WHERE user_id = ?', [userId]);
                 if (exist.length === 0) break;
-                userId = `${baseUserId}${suffix++}`;
+                userId = `${admissionNo}${suffix++}`;
             }
 
             const plainPassword = `${cleanFn}${classNum}${rollNumber}${sectionName}`;
@@ -645,7 +651,6 @@ async function seed100StudentsIfMissing() {
             const motherName = `Sunita ${ln}`;
             const mobileNumber = `98${String(10000000 + i).padStart(8, '0')}`;
             const email = `${cleanFn.toLowerCase()}${i}@student.edu`;
-            const admissionNo = `${cleanFn}2026${rollNumber}${sectionName}`;
             const dob = `20${String(15 - Math.min(12, parseInt(classNum))).padStart(2, '0')}-05-15`;
 
             await query(`INSERT INTO students (
